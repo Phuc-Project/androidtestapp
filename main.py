@@ -56,21 +56,32 @@ async def serve_index():
     return FileResponse(str(index_file))
 
 def run_server():
+    if sys.platform == "win32":
+        try:
+            if sys.stdout:
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            if sys.stderr:
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     settings = load_settings()
     host = settings.get("host", "127.0.0.1")
     port = int(settings.get("port", 9090))
     url = f"http://{host}:{port}"
     print(f"\n=======================================================")
-    print(f"🚀 DROIDROUTER 9 - ANDROID VM & PROXY GATEWAY ENGINE")
+    print(f"[DROIDROUTER 9] ANDROID VM & PROXY GATEWAY ENGINE")
     print(f"=======================================================")
-    print(f"• Local Dashboard: {url}")
-    print(f"• MuMu Manager:    {settings.get('mumu_manager_path')}")
-    print(f"• ADB Executable:  {settings.get('adb_path')}")
+    print(f"* Local Dashboard: {url}")
+    print(f"* MuMu Manager:    {settings.get('mumu_manager_path')}")
+    print(f"* ADB Executable:  {settings.get('adb_path')}")
     print(f"=======================================================\n")
-    
-    # Auto-open browser
+
+    # Auto-open browser if run standalone
     try:
-        webbrowser.open(url)
+        # Only open browser if not invoked via launcher (check env or argv)
+        if "--no-browser" not in sys.argv:
+            webbrowser.open(url)
     except Exception:
         pass
 
