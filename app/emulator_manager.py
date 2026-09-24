@@ -375,4 +375,41 @@ class EmulatorManager:
             res = self.run_adb(index, ["install", "-r", apk_path], timeout=90)
         return res
 
+    def optimize_cluster_for_testing(self, cpu: int = 1, mem_gb: float = 2.0, fps: int = 20, resolution: str = "phone.3") -> Dict[str, Any]:
+        """
+        Applies optimal resource constraints across all instances for continuous 12-VM app testing:
+        - 1 vCPU per VM (prevents CPU contention on 12-thread host)
+        - 2.0 GB RAM per VM (24GB total for 12 VMs, perfectly within 32GB RAM)
+        - phone.3 resolution (540x960, 240 DPI, saves 65% VRAM on RTX 4050)
+        - 20 FPS cap + dynamic background reduction to 10 FPS
+        - Audio processing disabled
+        """
+        args = [
+            "setting", "-v", "all",
+            "-k", "performance_mode", "-val", "custom",
+            "-k", "performance_cpu.custom", "-val", str(cpu),
+            "-k", "performance_mem.custom", "-val", f"{mem_gb:.6f}",
+            "-k", "resolution_mode", "-val", resolution,
+            "-k", "max_frame_rate", "-val", str(fps),
+            "-k", "dynamic_adjust_frame_rate", "-val", "true",
+            "-k", "dynamic_low_frame_rate_limit", "-val", "10",
+            "-k", "system_volume_close", "-val", "true",
+            "-k", "vertical_sync", "-val", "false"
+        ]
+        log_event("SUCCESS", "EMULATOR", f"Optimized all instances for App Testing: {cpu} vCPU, {mem_gb}GB RAM, {fps}FPS, {resolution}")
+        return self._run_mumu_cmd(args, timeout=30)
+
+    def force_stop_app(self, index: str, package: str) -> bool:
+        res = self.run_adb(index, ["shell", "am", "force-stop", package])
+        return res.get("success", False)
+
+    def clear_app_data(self, index: str, package: str) -> bool:
+        res = self.run_adb(index, ["shell", "pm", "clear", package])
+        return res.get("success", False)
+
+    def run_monkey_test(self, index: str, package: str, events: int = 300, throttle: int = 150) -> Dict[str, Any]:
+        res = self.run_adb(index, ["shell", "monkey", "-p", package, "--throttle", str(throttle), "-v", str(events)], timeout=60)
+        return res
+
 emu_manager = EmulatorManager()
+

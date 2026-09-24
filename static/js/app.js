@@ -32,15 +32,16 @@ const App = {
   },
 
   bindEvents() {
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    // Tab switching (both sidebar and header tabs)
+    document.querySelectorAll('.sidebar-btn, .tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const tab = btn.dataset.tab;
-        this.switchTab(tab);
+        if (tab) this.switchTab(tab);
       });
     });
 
     // Global quick actions
+    document.getElementById('btnOptimizeCluster')?.addEventListener('click', () => TestingModule.autoOptimizeCluster());
     document.getElementById('btnStartAll')?.addEventListener('click', () => this.startAllVms());
     document.getElementById('btnStopAll')?.addEventListener('click', () => this.stopAllVms());
     document.getElementById('btnArrange')?.addEventListener('click', () => this.arrangeWindows());
@@ -62,15 +63,32 @@ const App = {
 
   switchTab(tabName) {
     this.activeTab = tabName;
-    document.querySelectorAll('.tab-btn').forEach(btn => {
+    document.querySelectorAll('.sidebar-btn, .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabName);
     });
     document.querySelectorAll('.tab-content').forEach(content => {
       content.classList.toggle('active', content.id === `tab-${tabName}`);
     });
 
+    // Dynamic header title update
+    const titleEl = document.getElementById('currentViewTitle');
+    const titles = {
+      instances: 'Thiết bị & Máy ảo (Device Nodes)',
+      testing: 'Trung tâm Kiểm thử App (Test Suite)',
+      remote: 'Điều khiển màn hình trực tiếp (Live Remote)',
+      accounts: 'Kho tài khoản & Mã 2FA (Vault)',
+      proxies: 'Cổng định tuyến Proxy (Gateway)',
+      services: 'Điều khiển hàng loạt (Broadcast Shell)',
+      logs: 'Nhật ký hệ thống (Logs & Events)',
+      settings: 'Cài đặt Cụm (Cluster Settings)'
+    };
+    if (titleEl && titles[tabName]) {
+      titleEl.textContent = titles[tabName];
+    }
+
     // Trigger tab-specific loader
     if (tabName === 'instances') InstancesModule.load();
+    if (tabName === 'testing') TestingModule.load();
     if (tabName === 'remote') RemoteModule.load();
     if (tabName === 'accounts') AccountsModule.load();
     if (tabName === 'proxies') ProxiesModule.load();

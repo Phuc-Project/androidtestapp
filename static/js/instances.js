@@ -57,20 +57,20 @@ const InstancesModule = {
 
             <div class="vm-details">
               <div>
-                <div class="vm-prop-label">Android OS</div>
-                <div class="vm-prop-val">v${vm.android_version}</div>
+                <div class="vm-prop-label">Cấu hình Test</div>
+                <div class="vm-prop-val" style="color:var(--primary);">1 vCPU • 2GB • 20FPS</div>
               </div>
               <div>
-                <div class="vm-prop-label">Disk Storage</div>
+                <div class="vm-prop-label">Độ phân giải</div>
+                <div class="vm-prop-val">540x960 (240 DPI)</div>
+              </div>
+              <div>
+                <div class="vm-prop-label">ADB Endpoint</div>
+                <div class="vm-prop-val" style="color:#0284c7;">${vm.adb_target}</div>
+              </div>
+              <div>
+                <div class="vm-prop-label">Dung lượng ổ đĩa</div>
                 <div class="vm-prop-val">${vm.disk_size_mb} MB</div>
-              </div>
-              <div>
-                <div class="vm-prop-label">ADB Target</div>
-                <div class="vm-prop-val" style="color:var(--accent-cyan);">${vm.adb_target}</div>
-              </div>
-              <div>
-                <div class="vm-prop-label">Proxy Status</div>
-                <div class="vm-prop-val">${vm.assigned_proxy_id ? 'Assigned' : 'Direct'}</div>
               </div>
             </div>
           </div>

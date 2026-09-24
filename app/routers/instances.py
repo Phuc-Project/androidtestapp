@@ -133,3 +133,24 @@ async def run_adb(index: str, req: AdbCommandRequest):
     args = req.command.strip().split()
     res = emu_manager.run_adb(index, args)
     return res
+
+class ClusterOptimizeRequest(BaseModel):
+    cpu: Optional[int] = 1
+    mem_gb: Optional[float] = 2.0
+    fps: Optional[int] = 20
+    resolution: Optional[str] = "phone.3"
+
+@router.post("/optimize-cluster")
+async def optimize_cluster(req: ClusterOptimizeRequest):
+    res = emu_manager.optimize_cluster_for_testing(
+        cpu=req.cpu or 1,
+        mem_gb=req.mem_gb or 2.0,
+        fps=req.fps or 20,
+        resolution=req.resolution or "phone.3"
+    )
+    return {
+        "success": res.get("success", False),
+        "message": f"Cluster optimized for app testing: {req.cpu} vCPU, {req.mem_gb}GB RAM, {req.fps} FPS (540x960)",
+        "details": res
+    }
+
