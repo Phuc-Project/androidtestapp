@@ -1,0 +1,16 @@
+{
+  "app_title": "DroidRouter 9",
+  "host": "127.0.0.1",
+  "port": 9090,
+  "pin_enabled": false,
+  "pin_code": "",
+  "emulator_type": "mumu",
+  "mumu_manager_path": "C:\\Program Files\\Netease\\MuMuPlayer\\nx_main\\MuMuManager.exe",
+  "ldplayer_console_path": "C:\\LDPlayer\\LDPlayer9\\ldconsole.exe",
+  "adb_path": "C:\\Users\\Admin\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe",
+  "auto_refresh_sec": 5,
+  "auto_layout_cols": 3,
+  "auto_layout_width": 450,
+  "auto_layout_height": 800,
+  "theme": "dark"
+}

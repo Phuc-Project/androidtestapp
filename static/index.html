@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DroidRouter 9 - Android VM & Proxy Gateway Engine</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header>
+    <div class="logo-area">
+      <div class="logo-badge">DR9</div>
+      <div class="logo-title">
+        <h1>DroidRouter 9</h1>
+        <p>Android VM & Proxy Router Gateway Engine</p>
+      </div>
+      <div class="engine-status">
+        <span class="pulse-dot"></span>
+        <span>LOCAL ENGINE ACTIVE</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnStartAll" title="Launch all stopped VMs">🟢 Start All</button>
+      <button class="btn btn-danger" id="btnStopAll" title="Shutdown all running VMs">🛑 Stop All</button>
+      <button class="btn btn-secondary" id="btnArrange" title="Auto-layout windows on screen">📐 Arrange</button>
+      <button class="btn btn-secondary" id="btnRefreshAll" title="Refresh data">🔄 Refresh</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+
+    <!-- Telemetry Cards -->
+    <div class="telemetry-grid">
+      <!-- Card 1: Virtual Machines -->
+      <div class="stat-card">
+        <div>
+          <div class="stat-header">
+            <span class="stat-title">Android VMs</span>
+            <span class="stat-icon">📱</span>
+          </div>
+          <div class="stat-value" id="statVms">0 / 0</div>
+          <div class="stat-sub" id="statVmsSub">0 Running • 0 Stopped</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="statVmsBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Card 2: CPU Load -->
+      <div class="stat-card">
+        <div>
+          <div class="stat-header">
+            <span class="stat-title">Host CPU Usage</span>
+            <span class="stat-icon">⚡</span>
+          </div>
+          <div class="stat-value" id="statCpu">0%</div>
+          <div class="stat-sub">Processor Load</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="statCpuBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Card 3: Memory Load -->
+      <div class="stat-card">
+        <div>
+          <div class="stat-header">
+            <span class="stat-title">System RAM</span>
+            <span class="stat-icon">💾</span>
+          </div>
+          <div class="stat-value" id="statRam">0%</div>
+          <div class="stat-sub" id="statRamSub">0 / 0 GB</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="statRamBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Card 4: Proxy Router -->
+      <div class="stat-card">
+        <div>
+          <div class="stat-header">
+            <span class="stat-title">Proxy Gateway</span>
+            <span class="stat-icon">🌐</span>
+          </div>
+          <div class="stat-value" style="color:var(--accent-cyan);">9Router Ready</div>
+          <div class="stat-sub">HTTP & SOCKS5 Routing Active</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width: 100%; background: var(--accent-cyan);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="instances">📱 Virtual Machines</button>
+      <button class="tab-btn" data-tab="remote">🎮 Live Remote Screen</button>
+      <button class="tab-btn" data-tab="accounts">🔑 Account Vault & 2FA</button>
+      <button class="tab-btn" data-tab="proxies">🌐 Proxy Router</button>
+      <button class="tab-btn" data-tab="services">⚡ Services & Broadcast</button>
+      <button class="tab-btn" data-tab="logs">📜 System Logs</button>
+      <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+    </div>
+
+    <!-- Tab 1: Virtual Machines -->
+    <div class="tab-content active" id="tab-instances">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:16px;font-weight:700;">Managed Android VM Instances</h2>
+        <button class="btn btn-primary" onclick="InstancesModule.openCreateModal()">+ Create New VM</button>
+      </div>
+      <div class="vm-grid" id="vmGrid"></div>
+    </div>
+
+    <!-- Tab 2: Live Remote Screen -->
+    <div class="tab-content" id="tab-remote">
+      <div class="remote-layout">
+        <!-- Phone Viewport & Canvas -->
+        <div class="screen-container">
+          <div class="screen-header-bar">
+            <select class="form-select" id="remoteVmSelect" style="width:auto;padding:3px 8px;font-size:12px;" onchange="RemoteModule.onVmChange(this.value)">
+              <option value="0">VM #0</option>
+            </select>
+            <span id="screenStatusText" style="color:var(--text-dim);font-size:11px;">Connecting...</span>
+          </div>
+
+          <div class="screen-canvas-wrapper" onpointerdown="RemoteModule.handlePointerDown(event)" onpointerup="RemoteModule.handlePointerUp(event)">
+            <img id="remoteScreenImg" alt="Device Screen" draggable="false" style="user-select:none;pointer-events:auto;" />
+          </div>
+
+          <!-- Bottom Android Navigation Keys -->
+          <div class="screen-navbar">
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('back')" title="Back (KEY_BACK)">⬅️ Back</button>
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('home')" title="Home (KEY_HOME)">🔘 Home</button>
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('recents')" title="Recent Apps">📑 Recents</button>
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('power')" title="Power">⚡ Power</button>
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('volume_up')" title="Vol+">🔊 +</button>
+            <button class="nav-key-btn" onclick="RemoteModule.sendKey('volume_down')" title="Vol-">🔉 -</button>
+          </div>
+        </div>
+
+        <!-- Remote Controls & Utilities -->
+        <div class="remote-control-panel">
+          <!-- Text Input Injector -->
+          <div class="control-card">
+            <div class="control-card-title">⌨️ ADB Text & Keystroke Injector</div>
+            <div class="form-group" style="display:flex;gap:8px;">
+              <input type="text" id="remoteTextInput" class="form-input" placeholder="Type text to send to focused field on VM..." onkeydown="if(event.key==='Enter') RemoteModule.sendText()">
+              <button class="btn btn-primary" onclick="RemoteModule.sendText()">Send</button>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('enter')">↵ Enter</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('delete')">⌫ Backspace</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('space')">Space</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('tab')">Tab</button>
+            </div>
+          </div>
+
+          <!-- Quick App Launcher -->
+          <div class="control-card">
+            <div class="control-card-title">🚀 Quick App Launcher</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:12px;">
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.settings')">⚙️ Settings</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.vending')">🛍️ Play Store</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.chrome')">🌐 Chrome</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.zhiliaoapp.musically')">🎵 TikTok</button>
+              <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.facebook.katana')">🔷 Facebook</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="customAppPkg" class="form-input" placeholder="Package name, e.g. com.example.app">
+              <button class="btn btn-secondary" onclick="RemoteModule.launchApp(document.getElementById('customAppPkg').value)">Launch</button>
+            </div>
+          </div>
+
+          <!-- APK Installer -->
+          <div class="control-card">
+            <div class="control-card-title">📦 Install APK Package</div>
+            <div style="border:2px dashed var(--border-color);border-radius:var(--radius-sm);padding:20px;text-align:center;">
+              <input type="file" id="apkFileInput" accept=".apk" style="display:none;" onchange="RemoteModule.installApkFile(this.files[0])">
+              <button class="btn btn-secondary" onclick="document.getElementById('apkFileInput').click()">📁 Select APK File to Install</button>
+              <p style="font-size:11px;color:var(--text-dim);margin-top:8px;">Installs APK directly onto the active VM instance.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Account Vault -->
+    <div class="tab-content" id="tab-accounts">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <h2 style="font-size:16px;font-weight:700;">Account Credentials & 2FA Vault</h2>
+          <p style="font-size:12px;color:var(--text-dim);">Store accounts, generate live TOTP codes, and 1-click auto-fill credentials into Android VMs.</p>
+        </div>
+        <button class="btn btn-primary" onclick="AccountsModule.openAddModal()">+ Add Account</button>
+      </div>
+      <div id="accountsList"></div>
+    </div>
+
+    <!-- Tab 4: Proxy Router -->
+    <div class="tab-content" id="tab-proxies">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <h2 style="font-size:16px;font-weight:700;">Proxy Router & Gateway</h2>
+          <p style="font-size:12px;color:var(--text-dim);">Route Android instances through HTTP/SOCKS5 proxies with live latency and geolocation testing.</p>
+        </div>
+        <button class="btn btn-primary" onclick="ProxiesModule.openAddModal()">+ Add Proxy</button>
+      </div>
+      <div id="proxyList"></div>
+    </div>
+
+    <!-- Tab 5: Services & Broadcast -->
+    <div class="tab-content" id="tab-services">
+      <div style="display:grid;grid-template-columns:1fr;gap:20px;">
+        <div class="control-card">
+          <div class="control-card-title">📡 Multi-Device ADB Command Broadcast</div>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;">
+            Execute a shell command simultaneously across all currently running Android VMs without manual multi-drive clicking.
+          </p>
+
+          <div style="margin-bottom:12px;font-size:12px;color:var(--accent-cyan);" id="broadcastRunningTarget">Scanning running VMs...</div>
+
+          <div class="form-group" style="display:flex;gap:8px;">
+            <input type="text" id="broadcastCmdInput" class="form-input" style="font-family:'JetBrains Mono',monospace;" placeholder="e.g. input keyevent 3 (Go Home) or pm list packages">
+            <button class="btn btn-primary" onclick="ServicesModule.executeBroadcast()">⚡ Broadcast Run</button>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            <span style="font-size:11px;color:var(--text-dim);align-self:center;">Presets:</span>
+            <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('input keyevent 3')">Go Home (3)</button>
+            <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('input keyevent 4')">Back (4)</button>
+            <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('pm clear com.android.chrome')">Clear Chrome Cache</button>
+            <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('settings get global http_proxy')">Check Proxy</button>
+          </div>
+
+          <div class="console-box" id="broadcastResultBox" style="min-height:120px;">
+            <span style="color:var(--text-dim);">Broadcast execution results will appear here...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 6: System Logs -->
+    <div class="tab-content" id="tab-logs">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h2 style="font-size:16px;font-weight:700;">Live Event Stream</h2>
+        <button class="btn btn-secondary btn-sm" onclick="App.loadLogs()">🔄 Refresh Logs</button>
+      </div>
+      <div class="console-box" id="systemLogBox"></div>
+    </div>
+
+    <!-- Tab 7: Settings -->
+    <div class="tab-content" id="tab-settings">
+      <div class="control-card" style="max-width:700px;margin:0 auto;">
+        <div class="control-card-title">⚙️ Engine & System Configuration</div>
+        <form id="settingsForm">
+          <div class="form-group">
+            <label class="form-label">Application Title</label>
+            <input type="text" id="settAppTitle" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">MuMuManager.exe Executable Path</label>
+            <input type="text" id="settMumuPath" class="form-input" style="font-family:'JetBrains Mono',monospace;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ADB Executable Path</label>
+            <input type="text" id="settAdbPath" class="form-input" style="font-family:'JetBrains Mono',monospace;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Auto Refresh Interval (Seconds)</label>
+            <input type="number" id="settRefreshSec" class="form-input" min="2" max="60">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:16px;">
+            <input type="checkbox" id="settPinEnabled" style="width:16px;height:16px;accent-color:var(--accent-green);">
+            <label for="settPinEnabled" style="font-size:13px;cursor:pointer;">Enable Local PIN Lock on Startup</label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New PIN Code (Leave blank to keep existing)</label>
+            <input type="password" id="settPinCode" class="form-input" placeholder="e.g. 1234">
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top:10px;">💾 Save Configuration</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Create VM -->
+  <div class="modal-overlay" id="modalCreateVm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Create New Android Instance</div>
+        <button class="modal-close" onclick="document.getElementById('modalCreateVm').classList.remove('active')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Android Engine Version</label>
+        <select class="form-select" id="newVmVersion">
+          <option value="15" selected>Android 15 (Recommended - MuMu 12)</option>
+          <option value="12">Android 12</option>
+          <option value="auto">Auto (Default Engine)</option>
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('modalCreateVm').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary" onclick="InstancesModule.submitCreateVm()">Create VM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Hardware Simulation -->
+  <div class="modal-overlay" id="modalSimulation">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Device Hardware Simulation</div>
+        <button class="modal-close" onclick="document.getElementById('modalSimulation').classList.remove('active')">&times;</button>
+      </div>
+      <input type="hidden" id="simVmIndex">
+      <div class="form-group">
+        <label class="form-label">Property to Change</label>
+        <select class="form-select" id="simKey">
+          <option value="android_id">Android ID</option>
+          <option value="imei">IMEI</option>
+          <option value="mac_address">MAC Address</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Simulated Value</label>
+        <input type="text" id="simVal" class="form-input" placeholder="Enter new value...">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('modalSimulation').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary" onclick="InstancesModule.submitSimulation()">Apply Hardware ID</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Account -->
+  <div class="modal-overlay" id="modalAccount">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Store Account & 2FA Credentials</div>
+        <button class="modal-close" onclick="document.getElementById('modalAccount').classList.remove('active')">&times;</button>
+      </div>
+      <form id="accForm" onsubmit="event.preventDefault(); AccountsModule.submitAccount();">
+        <input type="hidden" id="accEditId">
+        <div class="form-group">
+          <label class="form-label">Platform / Service</label>
+          <select class="form-select" id="accService">
+            <option value="google">Google / Gmail</option>
+            <option value="tiktok">TikTok</option>
+            <option value="facebook">Facebook</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="telegram">Telegram</option>
+            <option value="discord">Discord</option>
+            <option value="custom">Custom App</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Account Label / Title</label>
+          <input type="text" id="accName" class="form-input" placeholder="e.g. Farm 01 - Main TikTok">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username / Email / Phone</label>
+          <input type="text" id="accUsername" class="form-input" required placeholder="user@gmail.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="accPassword" class="form-input" placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label class="form-label">2FA Secret Key (Base32 for TOTP)</label>
+          <input type="text" id="acc2FaSecret" class="form-input" placeholder="e.g. JBSWY3DPEHPK3PXP" style="font-family:'JetBrains Mono',monospace;">
+          <p style="font-size:11px;color:var(--text-dim);margin-top:4px;">Generates live 6-digit codes and supports 1-click injection to VM.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bind to Android VM Instance</label>
+          <select class="form-select" id="accVmIndex">
+            <option value="">-- None (Unbound) --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea id="accNotes" class="form-input" rows="2" placeholder="Recovery email, cookie, etc."></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalAccount').classList.remove('active')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Proxy -->
+  <div class="modal-overlay" id="modalProxy">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Configure Proxy Gateway</div>
+        <button class="modal-close" onclick="document.getElementById('modalProxy').classList.remove('active')">&times;</button>
+      </div>
+      <form id="proxyForm" onsubmit="event.preventDefault(); ProxiesModule.submitProxy();">
+        <div class="form-group">
+          <label class="form-label">Proxy Name / Label</label>
+          <input type="text" id="proxyName" class="form-input" placeholder="e.g. US Residential 01">
+        </div>
+        <div class="form-group" style="display:grid;grid-template-columns:120px 1fr 100px;gap:8px;">
+          <div>
+            <label class="form-label">Protocol</label>
+            <select class="form-select" id="proxyProto">
+              <option value="http">HTTP</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Host / IP</label>
+            <input type="text" id="proxyHost" class="form-input" placeholder="192.168.1.100" required>
+          </div>
+          <div>
+            <label class="form-label">Port</label>
+            <input type="number" id="proxyPort" class="form-input" placeholder="8080" required>
+          </div>
+        </div>
+        <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label class="form-label">Username (Optional)</label>
+            <input type="text" id="proxyUsername" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">Password (Optional)</label>
+            <input type="password" id="proxyPassword" class="form-input">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bind to Android VM Instance</label>
+          <select class="form-select" id="proxyVmIndex">
+            <option value="">-- None (Unbound) --</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalProxy').classList.remove('active')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Proxy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PIN Lock Overlay -->
+  <div class="modal-overlay" id="pinOverlay">
+    <div class="modal-content" style="max-width:380px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+      <h2 style="font-size:18px;margin-bottom:6px;">Dashboard Protected</h2>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:20px;">Enter your Security PIN to access DroidRouter 9.</p>
+      <form id="pinForm">
+        <input type="password" id="inputPin" class="form-input" style="text-align:center;font-size:24px;letter-spacing:6px;margin-bottom:16px;" placeholder="••••" autofocus required>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Unlock</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="/static/js/instances.js"></script>
+  <script src="/static/js/remote.js"></script>
+  <script src="/static/js/accounts.js"></script>
+  <script src="/static/js/proxies.js"></script>
+  <script src="/static/js/services.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
