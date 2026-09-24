@@ -61,3 +61,14 @@ async def verify_pin(req: PinVerifyRequest):
         return {"success": True, "authenticated": True}
     valid = (req.pin == s.get("pin_code"))
     return {"success": valid, "authenticated": valid}
+
+@router.post("/shutdown")
+async def shutdown_system():
+    import threading, time, os
+    def _exit():
+        time.sleep(0.8)
+        os._exit(0)
+    threading.Thread(target=_exit, daemon=True).start()
+    log_event("WARNING", "SYSTEM", "DroidRouter 9 Engine shutdown initiated")
+    return {"success": True, "message": "Engine shutting down"}
+

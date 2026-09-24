@@ -45,6 +45,7 @@ const App = {
     document.getElementById('btnStopAll')?.addEventListener('click', () => this.stopAllVms());
     document.getElementById('btnArrange')?.addEventListener('click', () => this.arrangeWindows());
     document.getElementById('btnRefreshAll')?.addEventListener('click', () => this.refreshCurrentTab());
+    document.getElementById('btnQuitApp')?.addEventListener('click', () => this.quitEngine());
 
     // Settings save
     document.getElementById('settingsForm')?.addEventListener('submit', (e) => {
@@ -281,6 +282,19 @@ const App = {
       }
     } catch (e) {
       alert('Error verifying PIN');
+    }
+  },
+
+  async quitEngine() {
+    if (!confirm('Dừng toàn bộ hệ thống DroidRouter 9 và đóng ứng dụng?')) return;
+    try {
+      await fetch('/api/system/shutdown', { method: 'POST' });
+      this.showToast('Hệ thống đang tắt...');
+      setTimeout(() => {
+        window.close();
+      }, 800);
+    } catch (e) {
+      window.close();
     }
   }
 };
