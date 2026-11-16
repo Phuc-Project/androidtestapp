@@ -1,124 +1,94 @@
-// DroidRouter SaaS - App Test Suite & Batch Automation
+// DroidTest — quick tools for running devices
 
 const TestingModule = {
-  async load() {
-    this.refreshRunningStatus();
+  labels: {
+    launch: "Mở app",
+    stop: "Buộc dừng",
+    clear: "Xoá dữ liệu",
+    monkey: "Monkey 300 thao tác",
   },
 
-  async refreshRunningStatus() {
-    const el = document.getElementById('testRunningCount');
-    if (!el) return;
-    try {
-      const res = await fetch('/api/instances');
-      const data = await res.json();
-      if (data.success) {
-        const running = data.data.filter(v => v.is_running);
-        el.textContent = `${running.length} / ${data.data.length} Nodes Online`;
-      }
-    } catch (e) {}
+  showResults(title, results, okText) {
+    const box = document.getElementById("testConsoleBox");
+    const wrap = document.getElementById("testConsoleContainer");
+    if (!box || !wrap) return;
+    wrap.hidden = false;
+    const rows = Object.entries(results || {}).map(([idx, r]) => {
+      const ok = !!r.success;
+      const out = ok ? okText : (r.error || r.output || "Không thành công");
+      return `<div class="r-row"><span class="dot ${ok ? "ok" : "bad"}"></span><span class="mono">#${this.esc(idx)}</span><span class="out" title="${this.esc(r.output || "")}">${this.esc(out)}</span></div>`;
+    }).join("");
+    box.innerHTML = `<div class="r-head">${this.esc(title)}</div>${rows}`;
+  },
+
+  showMessage(text) {
+    const box = document.getElementById("testConsoleBox");
+    const wrap = document.getElementById("testConsoleContainer");
+    if (!box || !wrap) return;
+    wrap.hidden = false;
+    box.innerHTML = `<div class="r-head">${this.esc(text)}</div>`;
   },
 
   async runBatchAction(action) {
-    const pkgInput = document.getElementById('testTargetPackage');
-    const pkg = pkgInput ? pkgInput.value.trim() : '';
-    const consoleBox = document.getElementById('testConsoleBox');
-
+    const input = document.getElementById("testTargetPackage");
+    const pkg = (input?.value || "").trim();
     if (!pkg) {
-      App.showToast('Vui lòng nhập tên Package ứng dụng (ví dụ: com.example.app)', 'error');
+      App.showToast("Nhập package của app, ví dụ com.congty.app", "error");
+      input?.focus();
       return;
     }
-
-    const actionLabels = {
-      launch: 'Mở ứng dụng',
-      stop: 'Buộc dừng ứng dụng',
-      clear: 'Xóa sạch dữ liệu (Clear Data)',
-      monkey: 'Chạy Monkey Stress Test (300 sự kiện)'
-    };
-
-    App.showToast(`Đang ${actionLabels[action] || action} trên các máy ảo...`);
-    if (consoleBox) consoleBox.innerHTML = `<div style="color:#94a3b8;">Đang gửi lệnh ${action} cho package '${pkg}'...</div>`;
-
+    const label = this.labels[action] || action;
+    this.showMessage(`${label}: đang gửi lệnh tới các máy đang chạy…`);
     try {
-      const res = await fetch('/api/services/batch-app-action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, package: pkg })
+      const res = await fetch("/api/services/batch-app-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, package: pkg }),
       });
       const data = await res.json();
-      if (data.success && consoleBox) {
-        let html = `<div style="color:#34d399;margin-bottom:8px;font-weight:700;">✅ Hoàn tất '${actionLabels[action] || action}' trên ${data.executed_count} máy ảo:</div>`;
-        for (const [idx, r] of Object.entries(data.results)) {
-          const isOk = r.success;
-          html += `
-            <div style="margin-bottom:4px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:11.5px;">
-              <span style="color:#38bdf8;font-weight:700;">Node #${idx}:</span>
-              <span style="color:${isOk ? '#f8fafc' : '#f87171'}">${r.output || (isOk ? 'Thành công' : 'Lỗi')}</span>
-            </div>
-          `;
-        }
-        consoleBox.innerHTML = html;
-        App.showToast('Lệnh test hoàn tất');
-      } else if (consoleBox) {
-        consoleBox.innerHTML = `<div style="color:#f87171;">${data.message || 'Thực thi thất bại'}</div>`;
-      }
+      if (!data.success) throw new Error(data.message || "Không có máy nào đang chạy");
+      this.showResults(`${label} · ${data.executed_count} máy`, data.results, "Xong");
+      App.showToast(`${label}: xong trên ${data.executed_count} máy`);
     } catch (e) {
-      App.showToast(e.message, 'error');
+      this.showMessage(e.message);
+      App.showToast(e.message, "error");
     }
   },
 
   async deployApk(file) {
     if (!file) return;
-    const consoleBox = document.getElementById('testConsoleBox');
-    App.showToast(`Đang tải lên và phân phối APK '${file.name}' tới toàn bộ máy ảo...`);
-    if (consoleBox) consoleBox.innerHTML = `<div style="color:#94a3b8;">Đang cài đặt ${file.name} đồng thời lên các máy đang chạy...</div>`;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
+    this.showMessage(`Đang cài ${file.name} lên các máy đang chạy…`);
+    const form = new FormData();
+    form.append("file", file);
     try {
-      const res = await fetch('/api/services/batch-install-apk', {
-        method: 'POST',
-        body: formData
-      });
+      const res = await fetch("/api/services/batch-install-apk", { method: "POST", body: form });
       const data = await res.json();
-      if (data.success && consoleBox) {
-        let html = `<div style="color:#34d399;margin-bottom:8px;font-weight:700;">✅ Đã cài đặt APK '${data.filename}' thành công trên ${data.installed_count} máy ảo!</div>`;
-        for (const [idx, r] of Object.entries(data.results)) {
-          html += `
-            <div style="margin-bottom:4px;padding:4px 8px;background:#1e293b;border-radius:4px;font-size:11.5px;">
-              <span style="color:#38bdf8;font-weight:700;">Node #${idx}:</span>
-              <span>${r.success ? 'Cài đặt hoàn tất' : (r.error || 'Thất bại')}</span>
-            </div>
-          `;
-        }
-        consoleBox.innerHTML = html;
-        App.showToast(`Cài đặt APK hoàn tất trên ${data.installed_count} máy`);
-      } else if (consoleBox) {
-        consoleBox.innerHTML = `<div style="color:#f87171;">${data.message || 'Cài đặt thất bại'}</div>`;
-      }
+      if (!data.success) throw new Error(data.message || "Không có máy nào đang chạy");
+      this.showResults(`Cài ${data.filename} · ${data.installed_count} máy`, data.results, "Đã cài");
+      App.showToast(`Đã cài ${data.filename} trên ${data.installed_count} máy`);
     } catch (e) {
-      App.showToast(e.message, 'error');
+      this.showMessage(e.message);
+      App.showToast(e.message, "error");
     }
   },
 
   async autoOptimizeCluster() {
-    if (!confirm('Áp dụng cấu hình siêu tối ưu cho 12 máy ảo chạy test app liên tục?\n(1 vCPU, 2GB RAM, 540x960 @ 20FPS, Tắt âm thanh)')) return;
-    App.showToast('Đang áp dụng thông số tối ưu cho toàn bộ máy ảo...');
+    if (!confirm("Áp cấu hình tiết kiệm cho tất cả máy?\n2 vCPU · 2 GB RAM · 540×960 · 15 FPS · GPU thấp · tắt âm thanh.\nMáy đang chạy sẽ áp dụng sau khi khởi động lại.")) return;
     try {
-      const res = await fetch('/api/instances/optimize-cluster', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cpu: 1, mem_gb: 2.0, fps: 20, resolution: 'phone.3' })
+      const res = await fetch("/api/instances/optimize-cluster", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       const data = await res.json();
-      if (data.success) {
-        App.showToast(data.message);
-        setTimeout(() => InstancesModule.load(), 1500);
-      } else {
-        App.showToast('Áp dụng thất bại', 'error');
-      }
+      if (!data.success) throw new Error("Không áp được cấu hình. Kiểm tra MuMuPlayer.");
+      App.showToast("Đã áp cấu hình tiết kiệm cho tất cả máy");
     } catch (e) {
-      App.showToast(e.message, 'error');
+      App.showToast(e.message, "error");
     }
-  }
+  },
+
+  esc(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
+  },
 };

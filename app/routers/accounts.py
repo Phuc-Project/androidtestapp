@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Optional, List
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
@@ -39,6 +40,40 @@ async def list_accounts():
         else:
             acc["totp"] = None
     return {"success": True, "data": accounts, "total": len(accounts)}
+
+class BulkGoogleRequest(BaseModel):
+    raw_text: str
+
+@router.post("/bulk-google")
+async def bulk_add_google(req: BulkGoogleRequest):
+    lines = req.raw_text.strip().split("\n")
+    added = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("|") if "|" in line else line.split("----") if "----" in line else line.split()
+        if not parts:
+            continue
+        email = parts[0].strip()
+        pwd = parts[1].strip() if len(parts) > 1 else ""
+        extra = parts[2].strip() if len(parts) > 2 else ""
+        compact = extra.replace(" ", "").upper()
+        is_totp = bool(re.fullmatch(r"[A-Z2-7]{16,64}=*", compact))
+        if email and "@" in email:
+            create_account({
+                "service": "google",
+                "name": email.split("@")[0] or "Google Acc",
+                "username": email,
+                "password": pwd,
+                "two_factor_secret": compact if is_totp else "",
+                "recovery_info": "" if is_totp else extra,
+                "assigned_vm_index": "",
+                "status": "active",
+                "notes": "Quick Google Pool"
+            })
+            added += 1
+    return {"success": True, "added": added, "message": f"Đã thêm thành công {added} tài khoản Google vào kho"}
 
 @router.post("")
 async def add_account(acc: AccountModel):

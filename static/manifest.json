@@ -1,11 +1,16 @@
 {
-  "name": "DroidRouter 9",
-  "short_name": "DroidRouter",
+  "name": "DroidTest",
+  "short_name": "DroidTest",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0d14",
-  "theme_color": "#111726",
+  "background_color": "#F5F6F8",
+  "theme_color": "#15171C",
   "icons": [
+    {
+      "src": "/static/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
     {
       "src": "/static/icon.png",
       "sizes": "256x256",

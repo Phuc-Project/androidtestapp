@@ -1,36 +1,25 @@
-// DroidRouter 9 - Live Remote Screen & Interactive Controller
+// DroidTest SaaS - Live Remote Screen & Interactive Controller
 
 const RemoteModule = {
   streamInterval: null,
   isStreaming: false,
   dragStart: null,
-  naturalWidth: 900,
-  naturalHeight: 1600,
+  naturalWidth: 540,
+  naturalHeight: 960,
 
-  async load() {
-    this.populateVmSelector();
+  openModal(index) {
+    App.currentRemoteVm = String(index);
+    const title = document.getElementById('remoteModalTitle');
+    if (title) title.textContent = `Màn hình máy #${index}`;
+    const modal = document.getElementById('modalRemote');
+    if (modal) modal.classList.add('active');
     this.startStreaming();
   },
 
-  async populateVmSelector() {
-    const sel = document.getElementById('remoteVmSelect');
-    if (!sel) return;
-    try {
-      const res = await fetch('/api/instances');
-      const data = await res.json();
-      if (data.success) {
-        sel.innerHTML = data.data.map(v => `
-          <option value="${v.index}" ${v.index === App.currentRemoteVm ? 'selected' : ''}>
-            VM #${v.index} - ${v.name} ${v.is_running ? '🟢' : '⚪'}
-          </option>
-        `).join('');
-      }
-    } catch (e) {}
-  },
-
-  onVmChange(newIndex) {
-    App.currentRemoteVm = newIndex;
-    this.fetchFrame();
+  closeModal() {
+    const modal = document.getElementById('modalRemote');
+    if (modal) modal.classList.remove('active');
+    this.stopStreaming();
   },
 
   startStreaming() {
@@ -38,10 +27,13 @@ const RemoteModule = {
     this.isStreaming = true;
     this.fetchFrame();
     this.streamInterval = setInterval(() => {
-      if (App.activeTab === 'remote') {
+      const modal = document.getElementById('modalRemote');
+      if (modal && modal.classList.contains('active')) {
         this.fetchFrame();
+      } else {
+        this.stopStreaming();
       }
-    }, 1500); // 1.5s refresh for screencap
+    }, 1200);
   },
 
   stopStreaming() {
@@ -64,12 +56,12 @@ const RemoteModule = {
     const tempImg = new Image();
     tempImg.onload = () => {
       img.src = tempImg.src;
-      this.naturalWidth = tempImg.naturalWidth || 900;
-      this.naturalHeight = tempImg.naturalHeight || 1600;
-      if (statusText) statusText.textContent = `Connected (Resolution: ${this.naturalWidth}x${this.naturalHeight})`;
+      this.naturalWidth = tempImg.naturalWidth || 540;
+      this.naturalHeight = tempImg.naturalHeight || 960;
+      if (statusText) statusText.textContent = `${this.naturalWidth}×${this.naturalHeight} · trực tiếp`;
     };
     tempImg.onerror = () => {
-      if (statusText) statusText.textContent = `Offline or Stopped (VM #${vmIdx})`;
+      if (statusText) statusText.textContent = `Không lấy được hình – máy #${vmIdx} đang tắt hoặc đang khởi động`;
     };
     tempImg.src = frameUrl;
   },
@@ -106,10 +98,8 @@ const RemoteModule = {
     const vmIdx = App.currentRemoteVm || '0';
 
     if (distance < 15) {
-      // Tap
       this.sendTap(vmIdx, x1, y1);
     } else {
-      // Swipe
       this.sendSwipe(vmIdx, x1, y1, x2, y2, Math.max(duration, 200));
     }
   },
@@ -144,7 +134,6 @@ const RemoteModule = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: keyName })
       });
-      App.showToast(`Sent key '${keyName}'`);
       setTimeout(() => this.fetchFrame(), 300);
     } catch (e) {
       App.showToast(e.message, 'error');
@@ -165,56 +154,11 @@ const RemoteModule = {
       });
       const data = await res.json();
       if (data.success) {
-        App.showToast('Text sent to VM');
+        App.showToast('Đã gửi chữ vào máy');
         if (input) input.value = '';
         setTimeout(() => this.fetchFrame(), 300);
       } else {
-        App.showToast('Failed to send text', 'error');
-      }
-    } catch (e) {
-      App.showToast(e.message, 'error');
-    }
-  },
-
-  async launchApp(packageId) {
-    const vmIdx = App.currentRemoteVm || '0';
-    App.showToast(`Launching ${packageId}...`);
-    try {
-      const res = await fetch(`/api/screen/${vmIdx}/launch-app`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ package: packageId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        App.showToast('App launched');
-        setTimeout(() => this.fetchFrame(), 1500);
-      } else {
-        App.showToast('Failed to launch app', 'error');
-      }
-    } catch (e) {
-      App.showToast(e.message, 'error');
-    }
-  },
-
-  async installApkFile(file) {
-    if (!file) return;
-    const vmIdx = App.currentRemoteVm || '0';
-    App.showToast(`Uploading and installing ${file.name} on VM #${vmIdx}...`);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const res = await fetch(`/api/screen/${vmIdx}/install-apk`, {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      if (data.success) {
-        App.showToast(`Installed ${file.name} successfully`);
-      } else {
-        App.showToast(data.error || 'APK installation failed', 'error');
+        App.showToast('Không gửi được chữ – máy có đang bật không?', 'error');
       }
     } catch (e) {
       App.showToast(e.message, 'error');

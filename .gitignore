@@ -1,5 +1,36 @@
+# Python cache & bytecode
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# Logs
 *.log
+data/*.log
+logs/
+
+# SQLite runtime database WAL / SHM (keeps .db if tracked, ignores locks)
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Windows shortcuts & Desktop artifacts
+*.lnk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# OS junk
 .DS_Store
+
+# IDE & Editors
+.vscode/
+.idea/
+.kilo/
+*.sublime-project
+*.sublime-workspace

@@ -12,7 +12,7 @@ class BroadcastCommandRequest(BaseModel):
     target_indices: Optional[List[str]] = None  # None or empty = all running
 
 @router.post("/broadcast-adb")
-async def broadcast_adb_command(req: BroadcastCommandRequest):
+def broadcast_adb_command(req: BroadcastCommandRequest):
     all_vms = emu_manager.list_all_vms()
     running_indices = [v["index"] for v in all_vms if v.get("is_running")]
 
@@ -31,7 +31,7 @@ async def broadcast_adb_command(req: BroadcastCommandRequest):
     return {"success": True, "executed_count": len(targets), "results": results}
 
 @router.post("/reboot-all")
-async def reboot_all_running(bg: BackgroundTasks):
+def reboot_all_running(bg: BackgroundTasks):
     all_vms = emu_manager.list_all_vms()
     running_indices = [v["index"] for v in all_vms if v.get("is_running")]
 
@@ -49,7 +49,7 @@ class BatchAppActionRequest(BaseModel):
     events: Optional[int] = 300
 
 @router.post("/batch-app-action")
-async def batch_app_action(req: BatchAppActionRequest):
+def batch_app_action(req: BatchAppActionRequest):
     all_vms = emu_manager.list_all_vms()
     running_indices = [v["index"] for v in all_vms if v.get("is_running")]
     targets = req.target_indices if req.target_indices else running_indices
@@ -87,7 +87,7 @@ import shutil, tempfile, os
 from pathlib import Path
 
 @router.post("/batch-install-apk")
-async def batch_install_apk(file: UploadFile = File(...)):
+def batch_install_apk(file: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".apk") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name

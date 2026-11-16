@@ -1,320 +1,326 @@
-// DroidRouter 9 - Core Application Logic
+// DroidTest — app shell: bootstrapping, toasts, menus, top bar
 
 const App = {
-  activeTab: 'instances',
-  currentRemoteVm: '0',
+  currentRemoteVm: "0",
   telemetryTimer: null,
-  isAuthenticated: true,
+
+  // ---------- pages ----------
+  routes: {
+    "": { view: "overview", title: "Tổng quan" },
+    "play-console": { view: "console", title: "Play Console" },
+    "lich-su": { view: "history", title: "Lịch sử" },
+    "may-ao": { view: "devices", title: "Máy ảo" },
+    "cong-cu": { view: "tools", title: "Công cụ" },
+    "cai-dat": { view: "settings", tab: "accounts", title: "Tài khoản Google" },
+    "cai-dat/chien-dich": { view: "settings", tab: "campaign", title: "Cài đặt chiến dịch" },
+    "cai-dat/he-thong": { view: "settings", tab: "system", title: "Cài đặt hệ thống" },
+  },
+
+  go(path) {
+    location.hash = "#/" + path;
+  },
+
+  route() {
+    const path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
+    const r = this.routes[path] || this.routes[""];
+    document.querySelectorAll("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== r.view));
+    document.querySelectorAll("[data-nav]").forEach((a) => a.classList.toggle("active", a.dataset.nav === r.view));
+    if (r.view === "settings") {
+      document.querySelectorAll("[data-tab-panel]").forEach((p) => (p.hidden = p.dataset.tabPanel !== r.tab));
+      document.querySelectorAll("[data-tab]").forEach((a) => a.classList.toggle("active", a.dataset.tab === r.tab));
+      if (r.tab === "campaign") {
+        CampaignModule._configFilled = false;
+        CampaignModule.fillConfig();
+      }
+      if (r.tab === "system") this.loadSystemSettings();
+    }
+    if (r.view === "console") ConsoleModule.load();
+    if (r.view === "history") HistoryModule.load();
+    document.title = `${r.title} · DroidTest`;
+    document.querySelectorAll(".menu.open").forEach((m) => m.classList.remove("open"));
+    window.scrollTo(0, 0);
+  },
+
+  async loadSystemSettings() {
+    try {
+      const data = await (await fetch("/api/system/settings")).json();
+      if (!data.success) return;
+      const s = data.data;
+      document.getElementById("sysMumuPath").value = s.mumu_manager_path || "";
+      document.getElementById("sysAdbPath").value = s.adb_path || "";
+      document.getElementById("sysPinEnabled").checked = !!s.pin_enabled;
+      document.getElementById("sysPinCode").value = "";
+      document.getElementById("sysPinCode").dataset.hasPin = s.has_pin ? "1" : "";
+    } catch (e) {
+      this.showToast("Không đọc được cài đặt hệ thống", "error");
+    }
+  },
+
+  async saveSystemSettings() {
+    const pinEnabled = document.getElementById("sysPinEnabled").checked;
+    const pinInput = document.getElementById("sysPinCode");
+    const pin = pinInput.value.trim();
+    if (pinEnabled && !pin && !pinInput.dataset.hasPin) {
+      this.showToast("Nhập mã PIN trước khi bật khoá", "error");
+      pinInput.focus();
+      return;
+    }
+    const body = { pin_enabled: pinEnabled };
+    const mumu = document.getElementById("sysMumuPath").value.trim();
+    const adb = document.getElementById("sysAdbPath").value.trim();
+    if (mumu) body.mumu_manager_path = mumu;
+    if (adb) body.adb_path = adb;
+    if (pin) body.pin_code = pin;
+    try {
+      const res = await fetch("/api/system/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Không lưu được cài đặt");
+      if (pinEnabled) {
+        try { sessionStorage.setItem("pin_verified", "true"); } catch (e) {}
+      }
+      this.showToast("Đã lưu cài đặt hệ thống");
+      this.loadSystemSettings();
+    } catch (e) {
+      this.showToast(e.message, "error");
+    }
+  },
+
+  async optimizeHardware() {
+    this.showToast("Đang dọn RAM, SSD và tối ưu đồ hoạ GPU...");
+    try {
+      const res = await fetch("/api/system/optimize-hardware", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(data.message);
+        this.fetchTelemetry();
+      } else {
+        throw new Error(data.message || "Lỗi tối ưu phần cứng");
+      }
+    } catch (e) {
+      this.showToast(e.message, "error");
+    }
+  },
+
+  async cleanRamOnly() {
+    this.showToast("Đang dọn sạch Working Set RAM...");
+    try {
+      const res = await fetch("/api/system/clean-ram", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(`Đã giải phóng ${data.data.ram_freed_mb} MB RAM (Hiện còn ${data.data.memory_percent}%)`);
+        this.fetchTelemetry();
+      }
+    } catch (e) {
+      this.showToast(e.message, "error");
+    }
+  },
+
+  async optimizeGpuOnly() {
+    this.showToast("Đang tắt animation và tối ưu GPU...");
+    try {
+      const res = await fetch("/api/system/optimize-gpu", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(data.message);
+      }
+    } catch (e) {
+      this.showToast(e.message, "error");
+    }
+  },
 
   init() {
+    window.addEventListener("hashchange", () => this.route());
+    this.route();
     this.bindEvents();
     this.checkPinStatus();
     this.startTelemetryLoop();
-    this.switchTab('instances');
+    InstancesModule.load();
+    AccountsModule.loadQuickPool();
+    CampaignModule.load();
+    CampaignModule.startPolling();
   },
 
-  showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
+  showToast(message, type = "success") {
+    const container = document.getElementById("toastContainer");
     if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type === 'error' ? 'error' : ''}`;
-    toast.innerHTML = `
-      <span>${type === 'error' ? '⚠️' : '✅'}</span>
-      <span>${message}</span>
-    `;
+    const toast = document.createElement("div");
+    toast.className = `toast ${type === "error" ? "error" : ""}`;
+    toast.setAttribute("role", type === "error" ? "alert" : "status");
+    toast.textContent = message;
     container.appendChild(toast);
+    while (container.children.length > 4) container.firstChild.remove();
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(50px)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, 3500);
+      toast.classList.add("leaving");
+      setTimeout(() => toast.remove(), 260);
+    }, type === "error" ? 6000 : 3800);
   },
 
   bindEvents() {
-    // Tab switching (both sidebar and header tabs)
-    document.querySelectorAll('.sidebar-btn, .tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const tab = btn.dataset.tab;
-        if (tab) this.switchTab(tab);
-      });
+    const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);
+    on("btnOptimizeCluster", () => TestingModule.autoOptimizeCluster());
+    on("btnStartAll", () => this.startAllVms());
+    on("btnStopAll", () => this.stopAllVms());
+    on("btnArrange", () => this.arrangeWindows());
+    on("btnRefreshAll", () => this.refresh());
+    on("btnQuitApp", () => this.quitEngine());
+    on("cmpQuickBtn", () => CampaignModule.quickStart());
+    document.getElementById("cmpQuickLink")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") CampaignModule.quickStart();
     });
-
-    // Global quick actions
-    document.getElementById('btnOptimizeCluster')?.addEventListener('click', () => TestingModule.autoOptimizeCluster());
-    document.getElementById('btnStartAll')?.addEventListener('click', () => this.startAllVms());
-    document.getElementById('btnStopAll')?.addEventListener('click', () => this.stopAllVms());
-    document.getElementById('btnArrange')?.addEventListener('click', () => this.arrangeWindows());
-    document.getElementById('btnRefreshAll')?.addEventListener('click', () => this.refreshCurrentTab());
-    document.getElementById('btnQuitApp')?.addEventListener('click', () => this.quitEngine());
-
-    // Settings save
-    document.getElementById('settingsForm')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      this.saveSettings();
-    });
-
-    // PIN lock form
-    document.getElementById('pinForm')?.addEventListener('submit', (e) => {
+    document.getElementById("pinForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       this.verifyPin();
     });
+
+    // Dropdown menus (works for menus rendered later too)
+    document.addEventListener("click", (e) => {
+      const toggle = e.target.closest("[data-menu-toggle]");
+      const openMenus = document.querySelectorAll(".menu.open");
+      if (toggle) {
+        const menu = toggle.closest(".menu");
+        const wasOpen = menu.classList.contains("open");
+        openMenus.forEach((m) => m.classList.remove("open"));
+        if (!wasOpen) menu.classList.add("open");
+        e.stopPropagation();
+        return;
+      }
+      openMenus.forEach((m) => m.classList.remove("open"));
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      document.querySelectorAll(".menu.open").forEach((m) => m.classList.remove("open"));
+      document.querySelectorAll(".modal-overlay.active").forEach((m) => {
+        if (m.id === "pinOverlay") return;
+        if (m.id === "modalRemote") RemoteModule.closeModal();
+        else m.classList.remove("active");
+      });
+    });
   },
 
-  switchTab(tabName) {
-    this.activeTab = tabName;
-    document.querySelectorAll('.sidebar-btn, .tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.toggle('active', content.id === `tab-${tabName}`);
-    });
-
-    // Dynamic header title update
-    const titleEl = document.getElementById('currentViewTitle');
-    const titles = {
-      instances: 'Thiết bị & Máy ảo (Device Nodes)',
-      testing: 'Trung tâm Kiểm thử App (Test Suite)',
-      remote: 'Điều khiển màn hình trực tiếp (Live Remote)',
-      accounts: 'Kho tài khoản & Mã 2FA (Vault)',
-      proxies: 'Cổng định tuyến Proxy (Gateway)',
-      services: 'Điều khiển hàng loạt (Broadcast Shell)',
-      logs: 'Nhật ký hệ thống (Logs & Events)',
-      settings: 'Cài đặt Cụm (Cluster Settings)'
-    };
-    if (titleEl && titles[tabName]) {
-      titleEl.textContent = titles[tabName];
-    }
-
-    // Trigger tab-specific loader
-    if (tabName === 'instances') InstancesModule.load();
-    if (tabName === 'testing') TestingModule.load();
-    if (tabName === 'remote') RemoteModule.load();
-    if (tabName === 'accounts') AccountsModule.load();
-    if (tabName === 'proxies') ProxiesModule.load();
-    if (tabName === 'services') ServicesModule.load();
-    if (tabName === 'logs') this.loadLogs();
-    if (tabName === 'settings') this.loadSettings();
-  },
-
-  refreshCurrentTab() {
-    this.switchTab(this.activeTab);
+  refresh() {
+    InstancesModule.load();
+    AccountsModule.loadQuickPool();
+    CampaignModule.load();
     this.updateTelemetry();
-    this.showToast('Data refreshed');
+    this.showToast("Đã làm mới dữ liệu");
   },
 
   async startTelemetryLoop() {
     await this.updateTelemetry();
-    this.telemetryTimer = setInterval(() => {
-      this.updateTelemetry();
-    }, 4000);
+    this.telemetryTimer = setInterval(async () => {
+      await this.updateTelemetry();
+      await InstancesModule.load();
+    }, 3500);
   },
 
   async updateTelemetry() {
     try {
-      const res = await fetch('/api/system/stats');
+      const res = await fetch("/api/system/stats");
       const data = await res.json();
       if (data.success) {
         const s = data.data;
-        // CPU
-        const cpuElem = document.getElementById('statCpu');
-        const cpuBar = document.getElementById('statCpuBar');
-        if (cpuElem) cpuElem.textContent = `${s.cpu_percent}%`;
-        if (cpuBar) cpuBar.style.width = `${Math.min(s.cpu_percent, 100)}%`;
-
-        // RAM
-        const ramElem = document.getElementById('statRam');
-        const ramBar = document.getElementById('statRamBar');
-        const ramSub = document.getElementById('statRamSub');
-        if (ramElem) ramElem.textContent = `${s.memory_percent}%`;
-        if (ramBar) ramBar.style.width = `${Math.min(s.memory_percent, 100)}%`;
-        if (ramSub) ramSub.textContent = `${s.memory_used_gb} / ${s.memory_total_gb} GB`;
-
-        // VMs
-        const vmsElem = document.getElementById('statVms');
-        const vmsSub = document.getElementById('statVmsSub');
-        const vmsBar = document.getElementById('statVmsBar');
-        if (vmsElem) vmsElem.textContent = `${s.vms_running} / ${s.vms_total}`;
-        if (vmsSub) vmsSub.textContent = `${s.vms_running} Running • ${s.vms_total - s.vms_running} Stopped`;
-        if (vmsBar) {
-          const pct = s.vms_total > 0 ? (s.vms_running / s.vms_total) * 100 : 0;
-          vmsBar.style.width = `${pct}%`;
+        const cpu = document.getElementById("statCpu");
+        const ram = document.getElementById("statRam");
+        if (cpu) cpu.textContent = `${Math.round(s.cpu_percent)}%`;
+        if (ram) {
+          ram.textContent = `${Math.round(s.memory_percent)}%`;
+          ram.title = `${s.memory_used_gb}/${s.memory_total_gb} GB`;
         }
       }
-    } catch (e) {
-      console.warn('Telemetry update failed', e);
-    }
+    } catch (e) {}
   },
 
   async startAllVms() {
-    if (!confirm('Start all stopped Android VM instances?')) return;
+    if (!confirm("Bật tất cả máy đang tắt? Với cấu hình tiết kiệm, nên chạy tối đa 3–4 máy cùng lúc.")) return;
     try {
-      const res = await fetch('/api/instances');
-      const data = await res.json();
-      if (data.success) {
-        const stopped = data.data.filter(v => !v.is_running).map(v => v.index);
-        if (stopped.length === 0) {
-          this.showToast('All VMs are already running');
-          return;
-        }
-        await fetch('/api/instances/batch-launch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ indices: stopped })
-        });
-        this.showToast(`Starting ${stopped.length} VMs in background...`);
-        setTimeout(() => InstancesModule.load(), 2000);
-      }
+      const data = await (await fetch("/api/instances")).json();
+      const stopped = data.data.filter((v) => !v.is_running).map((v) => v.index);
+      if (!stopped.length) return this.showToast("Tất cả máy đều đang chạy");
+      await fetch("/api/instances/batch-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices: stopped }),
+      });
+      this.showToast(`Đang bật ${stopped.length} máy`);
+      setTimeout(() => InstancesModule.load(), 2500);
     } catch (e) {
-      this.showToast(e.message, 'error');
+      this.showToast(e.message, "error");
     }
   },
 
   async stopAllVms() {
-    if (!confirm('Shutdown all running Android VM instances?')) return;
+    if (!confirm("Tắt tất cả máy đang chạy?")) return;
     try {
-      const res = await fetch('/api/instances');
-      const data = await res.json();
-      if (data.success) {
-        const running = data.data.filter(v => v.is_running).map(v => v.index);
-        if (running.length === 0) {
-          this.showToast('No VMs are currently running');
-          return;
-        }
-        await fetch('/api/instances/batch-shutdown', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ indices: running })
-        });
-        this.showToast(`Stopping ${running.length} VMs...`);
-        setTimeout(() => InstancesModule.load(), 2000);
-      }
+      const data = await (await fetch("/api/instances")).json();
+      const running = data.data.filter((v) => v.is_running).map((v) => v.index);
+      if (!running.length) return this.showToast("Không có máy nào đang chạy");
+      await fetch("/api/instances/batch-shutdown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ indices: running }),
+      });
+      this.showToast(`Đang tắt ${running.length} máy`);
+      setTimeout(() => InstancesModule.load(), 2000);
     } catch (e) {
-      this.showToast(e.message, 'error');
+      this.showToast(e.message, "error");
     }
   },
 
   async arrangeWindows() {
     try {
-      const res = await fetch('/api/instances/arrange', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        this.showToast('Windows arranged in grid layout');
-      } else {
-        this.showToast(data.error || 'Failed to arrange windows', 'error');
-      }
+      const data = await (await fetch("/api/instances/arrange", { method: "POST" })).json();
+      if (data.success) this.showToast("Đã xếp cửa sổ MuMu");
+      else this.showToast(data.error || "Không xếp được cửa sổ", "error");
     } catch (e) {
-      this.showToast(e.message, 'error');
+      this.showToast(e.message, "error");
     }
   },
 
-  async loadLogs() {
-    const box = document.getElementById('systemLogBox');
-    if (!box) return;
+  async quitEngine() {
+    if (!confirm("Dừng DroidTest và đóng ứng dụng? Các lượt test đang chạy sẽ bị huỷ.")) return;
     try {
-      const res = await fetch('/api/system/logs?limit=100');
-      const data = await res.json();
-      if (data.success) {
-        box.innerHTML = data.data.map(l => `
-          <div class="log-entry">
-            <span class="log-ts">[${l.timestamp.split(' ')[1] || l.timestamp}]</span>
-            <span class="log-src">[${l.source}]</span>
-            <span class="log-lvl-${l.level}">${l.message}</span>
-          </div>
-        `).join('') || '<div style="color:var(--text-dim);padding:8px;">No logs recorded yet.</div>';
-      }
-    } catch (e) {
-      box.innerHTML = `<div class="log-lvl-ERROR">Failed to load logs: ${e.message}</div>`;
-    }
-  },
-
-  async loadSettings() {
-    try {
-      const res = await fetch('/api/system/settings');
-      const data = await res.json();
-      if (data.success) {
-        const s = data.data;
-        document.getElementById('settAppTitle').value = s.app_title || '';
-        document.getElementById('settMumuPath').value = s.mumu_manager_path || '';
-        document.getElementById('settAdbPath').value = s.adb_path || '';
-        document.getElementById('settRefreshSec').value = s.auto_refresh_sec || 5;
-        document.getElementById('settPinEnabled').checked = !!s.pin_enabled;
-      }
-    } catch (e) {
-      this.showToast('Failed to load settings', 'error');
-    }
-  },
-
-  async saveSettings() {
-    const payload = {
-      app_title: document.getElementById('settAppTitle').value,
-      mumu_manager_path: document.getElementById('settMumuPath').value,
-      adb_path: document.getElementById('settAdbPath').value,
-      auto_refresh_sec: parseInt(document.getElementById('settRefreshSec').value) || 5,
-      pin_enabled: document.getElementById('settPinEnabled').checked,
-    };
-    const newPin = document.getElementById('settPinCode').value;
-    if (newPin) payload.pin_code = newPin;
-
-    try {
-      const res = await fetch('/api/system/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.showToast('Settings saved successfully');
-      } else {
-        this.showToast(data.message || 'Error saving settings', 'error');
-      }
-    } catch (e) {
-      this.showToast(e.message, 'error');
-    }
+      await fetch("/api/system/shutdown", { method: "POST" });
+    } catch (e) {}
+    document.body.innerHTML = `
+      <div style="min-height:100vh;display:grid;place-items:center;font-family:var(--font);color:var(--ink);text-align:center;">
+        <div><h2 style="font-size:18px;font-weight:600;">DroidTest đã dừng</h2>
+        <p style="color:var(--muted);margin-top:4px;">Bạn có thể đóng cửa sổ này.</p></div>
+      </div>`;
+    setTimeout(() => window.close(), 1500);
   },
 
   async checkPinStatus() {
     try {
-      const res = await fetch('/api/system/settings');
-      const data = await res.json();
-      if (data.success && data.data.pin_enabled) {
-        document.getElementById('pinOverlay').classList.add('active');
+      const data = await (await fetch("/api/system/settings")).json();
+      if (data.success && data.data?.pin_enabled && sessionStorage.getItem("pin_verified") !== "true") {
+        document.getElementById("pinOverlay")?.classList.add("active");
       }
     } catch (e) {}
   },
 
   async verifyPin() {
-    const pin = document.getElementById('inputPin').value;
+    const input = document.getElementById("inputPin");
     try {
-      const res = await fetch('/api/system/verify-pin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
+      const res = await fetch("/api/system/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: input ? input.value : "" }),
       });
       const data = await res.json();
-      if (data.authenticated) {
-        document.getElementById('pinOverlay').classList.remove('active');
-        this.showToast('Dashboard unlocked');
+      if (data.success) {
+        try { sessionStorage.setItem("pin_verified", "true"); } catch (e) {}
+        document.getElementById("pinOverlay")?.classList.remove("active");
       } else {
-        alert('Invalid Security PIN Code');
+        this.showToast("Mã PIN không đúng", "error");
+        if (input) input.value = "";
       }
     } catch (e) {
-      alert('Error verifying PIN');
+      this.showToast("Không xác thực được mã PIN", "error");
     }
   },
-
-  async quitEngine() {
-    if (!confirm('Dừng toàn bộ hệ thống DroidRouter 9 và đóng ứng dụng?')) return;
-    try {
-      await fetch('/api/system/shutdown', { method: 'POST' });
-      this.showToast('Hệ thống đang tắt...');
-      setTimeout(() => {
-        window.close();
-      }, 800);
-    } catch (e) {
-      window.close();
-    }
-  }
 };
 
-window.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener("DOMContentLoaded", () => App.init());

@@ -12,13 +12,15 @@ import uvicorn
 
 from app.config import load_settings, BASE_DIR
 from app.database import init_db, log_event
-from app.routers import instances, accounts, proxies, screen, system, services
+from app.routers import instances, accounts, proxies, screen, system, services, campaign
+from app.campaign_runner import campaign_runner
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     init_db()
     log_event("SUCCESS", "SYSTEM", "DroidRouter 9 Engine initialized successfully")
+    campaign_runner.start_scheduler()
     yield
     # Shutdown
     log_event("INFO", "SYSTEM", "DroidRouter 9 Engine stopped")
@@ -45,6 +47,7 @@ app.include_router(proxies.router)
 app.include_router(screen.router)
 app.include_router(system.router)
 app.include_router(services.router)
+app.include_router(campaign.router)
 
 # Mount Static Files
 static_dir = BASE_DIR / "static"

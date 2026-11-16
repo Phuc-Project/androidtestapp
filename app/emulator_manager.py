@@ -14,6 +14,7 @@ class EmulatorManager:
     def __init__(self):
         self._lock = threading.Lock()
         self._adb_connected_ports = set()
+        self._acc_cache: Dict[str, Any] = {}
 
     def get_settings(self) -> dict:
         return load_settings()
@@ -197,17 +198,30 @@ class EmulatorManager:
         except Exception:
             return None
 
-    def launch_vm(self, index: str) -> Dict[str, Any]:
-        log_event("INFO", "EMULATOR", f"Launching VM #{index}...")
+    def is_vm_running(self, index: str) -> bool:
+        info = self.get_vm_info(index)
+        return bool(info and info.get("is_running"))
+
+    def launch_vm(self, index: str, headless: bool = False) -> Dict[str, Any]:
+        log_event("INFO", "EMULATOR", f"Launching VM #{index} (headless={headless})...")
         res = self._run_mumu_cmd(["control", "-v", str(index), "launch"], timeout=15)
         
-        # In background, attempt to connect ADB
-        def _bg_adb_connect():
+        # In background, attempt to connect ADB and handle window visibility
+        def _bg_post_launch():
+            if headless:
+                # Repeatedly ensure window is hidden once spawned
+                for _ in range(4):
+                    time.sleep(2.5)
+                    self.hide_window(index)
+            else:
+                time.sleep(2.5)
+                self.show_window(index)
+
             for _ in range(8):
-                time.sleep(3)
+                time.sleep(2)
                 if self.connect_adb(str(index)):
                     break
-        threading.Thread(target=_bg_adb_connect, daemon=True).start()
+        threading.Thread(target=_bg_post_launch, daemon=True).start()
 
         if res["success"]:
             log_event("SUCCESS", "EMULATOR", f"VM #{index} launched successfully")
@@ -239,9 +253,10 @@ class EmulatorManager:
         log_event("INFO", "EMULATOR", "Arranging all emulator windows...")
         return self._run_mumu_cmd(["sort"], timeout=10)
 
-    def create_vm(self, version: str = "15") -> Dict[str, Any]:
-        log_event("INFO", "EMULATOR", f"Creating new Android {version} VM...")
-        res = self._run_mumu_cmd(["create", "-n", "1", "-ver", str(version)], timeout=60)
+    def create_vm(self, version: str = "15", count: int = 1) -> Dict[str, Any]:
+        count = max(1, int(count))
+        log_event("INFO", "EMULATOR", f"Creating {count} new Android {version} VM(s)...")
+        res = self._run_mumu_cmd(["create", "-n", str(count), "-ver", str(version)], timeout=60 + 45 * count)
         if res["success"]:
             log_event("SUCCESS", "EMULATOR", "New VM created successfully")
         return res
@@ -288,6 +303,8 @@ class EmulatorManager:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
@@ -345,10 +362,9 @@ class EmulatorManager:
         return res.get("success", False)
 
     def type_text(self, index: str, text: str) -> bool:
-        # Escape special characters for adb shell input text
-        # If text contains spaces or special characters, replace or quote
-        safe_text = text.replace(" ", "%s").replace("&", "\\&").replace("<", "\\<").replace(">", "\\>")
-        res = self.run_adb(index, ["shell", "input", "text", safe_text])
+        # `input text` uses %s for spaces; quote the whole argument for the device shell
+        payload = str(text).replace(" ", "%s")
+        res = self.run_adb(index, ["shell", "input text " + self._sh_quote(payload)])
         return res.get("success", False)
 
     def set_http_proxy(self, index: str, host: str, port: int) -> bool:
@@ -411,5 +427,180 @@ class EmulatorManager:
         res = self.run_adb(index, ["shell", "monkey", "-p", package, "--throttle", str(throttle), "-v", str(events)], timeout=60)
         return res
 
+    def get_android_logged_in_accounts(self, index: str, max_age: float = 15.0) -> List[str]:
+        """Query actual accounts logged into Android OS via ADB dumpsys account (cached for max_age seconds)"""
+        cached = self._acc_cache.get(str(index))
+        if cached and max_age > 0 and time.time() - cached[0] < max_age:
+            return list(cached[1])
+        accounts = self._query_android_accounts(index)
+        self._acc_cache[str(index)] = (time.time(), accounts)
+        return accounts
+
+    def _query_android_accounts(self, index: str) -> List[str]:
+        try:
+            res = self.run_adb(index, ["shell", "dumpsys", "account"], timeout=4)
+            if res.get("success") and res.get("output"):
+                out = res["output"]
+                # Explicit check for Accounts: 0
+                if re.search(r"Accounts:\s*0\b", out):
+                    return []
+                # Match actual logged-in Account entries: Account {name=..., type=com.google}
+                matches = re.findall(r"Account\s*\{name=([^,\}\s]+),\s*type=com\.google\}", out)
+                if matches:
+                    return list(set(matches))
+                matches2 = re.findall(r"Account\s*\{[^}]*type=com\.google[^}]*name=([^,\}\s]+)", out)
+                if matches2:
+                    return list(set(matches2))
+        except Exception:
+            pass
+        return []
+
+    def perform_google_login(self, index: str, email: str, password: str = "") -> Dict[str, Any]:
+        """
+        Automates Google Sign-In on the VM:
+        1. Opens Google Account setup or Play Store
+        2. Types email and password via ADB without requiring user manual input
+        """
+        self.connect_adb(index)
+        log_event("INFO", "ACCOUNT", f"Automating Google Sign-In on VM #{index} for {email}")
+
+        # Open Google Account Setup
+        self.run_adb(index, ["shell", "am", "start", "-a", "android.settings.ADD_ACCOUNT_SETTINGS", "--esa", "extra_account_types", "com.google"])
+        time.sleep(2.5)
+
+        # Type email
+        if email:
+            self.type_text(index, email)
+            time.sleep(0.5)
+            self.send_key(index, "enter")
+            time.sleep(2.5)
+
+        # Type password if available
+        if password:
+            self.type_text(index, password)
+            time.sleep(0.5)
+            self.send_key(index, "enter")
+
+        return {"success": True, "message": f"Đã tự động gửi thông tin đăng nhập Google ({email}) tới VM #{index}"}
+
+
+    # ==================== Google Play Closed Testing helpers ====================
+    @staticmethod
+    def _sh_quote(s: str) -> str:
+        return "'" + str(s).replace("'", "'\\''") + "'"
+
+    @staticmethod
+    def is_valid_package(pkg: str) -> bool:
+        return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+", pkg or ""))
+
+    def wait_for_boot(self, index: str, timeout: int = 240, stop_event: Optional[threading.Event] = None) -> bool:
+        """Block until Android reports sys.boot_completed=1 (or timeout / stop requested)."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if stop_event is not None and stop_event.is_set():
+                return False
+            res = self.run_adb(index, ["shell", "getprop", "sys.boot_completed"], timeout=6)
+            if res.get("success") and (res.get("output") or "").strip() == "1":
+                return True
+            time.sleep(3)
+        return False
+
+    def open_url(self, index: str, url: str) -> Dict[str, Any]:
+        cmd = f"am start -a android.intent.action.VIEW -d {self._sh_quote(url)}"
+        return self.run_adb(index, ["shell", cmd], timeout=10)
+
+    def open_play_store(self, index: str, package: str) -> Dict[str, Any]:
+        url = f"market://details?id={package}"
+        cmd = f"am start -a android.intent.action.VIEW -d {self._sh_quote(url)} -p com.android.vending"
+        return self.run_adb(index, ["shell", cmd], timeout=10)
+
+    def get_package_info(self, index: str, package: str) -> Dict[str, Any]:
+        """Return {'installed': bool, 'version_name': str, 'version_code': str, 'installer': str}"""
+        info = {"installed": False, "version_name": "", "version_code": "", "installer": ""}
+        if not self.is_valid_package(package):
+            return info
+        res = self.run_adb(index, ["shell", "pm", "list", "packages", "-i", package], timeout=8)
+        out = res.get("output") or ""
+        for line in out.splitlines():
+            m = re.match(r"package:(\S+)(?:\s+installer=(\S+))?", line.strip())
+            if m and m.group(1) == package:
+                info["installed"] = True
+                info["installer"] = m.group(2) or ""
+                break
+        if info["installed"]:
+            dump = self.run_adb(index, ["shell", "dumpsys", "package", package], timeout=10).get("output") or ""
+            mv = re.search(r"versionName=(\S+)", dump)
+            mc = re.search(r"versionCode=(\d+)", dump)
+            info["version_name"] = mv.group(1) if mv else ""
+            info["version_code"] = mc.group(1) if mc else ""
+        return info
+
+    def run_engagement(self, index: str, package: str, minutes: int = 3, events_per_min: int = 60,
+                       stop_event: Optional[threading.Event] = None) -> Dict[str, Any]:
+        """
+        Simulate a real tester session: open the app, interact for `minutes` minutes
+        (light monkey bursts restricted to the package, no system keys), then force-stop.
+        events_per_min = 0 keeps the app in the foreground without random input.
+        """
+        import random
+        started = time.time()
+        crashes = anrs = 0
+        self.launch_app(index, package)
+        time.sleep(5)
+        minutes = max(1, int(minutes))
+        for _ in range(minutes):
+            if stop_event is not None and stop_event.is_set():
+                break
+            if events_per_min <= 0:
+                time.sleep(60)
+                continue
+            throttle = max(150, int(60000 / max(1, events_per_min)))
+            args = [
+                "shell", "monkey", "-p", package,
+                "--pct-syskeys", "0", "--pct-anyevent", "0",
+                "--ignore-crashes", "--ignore-timeouts", "--ignore-security-exceptions",
+                "--throttle", str(throttle), "-s", str(random.randint(1, 10_000_000)),
+                "-v", str(int(events_per_min)),
+            ]
+            res = self.run_adb(index, args, timeout=150)
+            out = res.get("output") or ""
+            crashes += out.count("// CRASH")
+            anrs += out.count("// NOT RESPONDING")
+        self.force_stop_app(index, package)
+        return {"duration_sec": int(time.time() - started), "crashes": crashes, "anrs": anrs}
+
+    # Economical profile for a 12-VM tester farm (VMs run in small batches, then shut down)
+    ECO_PROFILE = {
+        "performance_mode": "custom",
+        "performance_cpu.custom": "2",
+        "performance_mem.custom": "2.000000",
+        "resolution_mode": "phone.3",          # 540x960 @ 240dpi
+        "max_frame_rate": "15",
+        "dynamic_adjust_frame_rate": "true",
+        "dynamic_low_frame_rate_limit": "5",
+        "gpu_mode": "low",
+        "system_volume_close": "true",
+        "vertical_sync": "false",
+        "app_keptlive": "false",
+    }
+
+    def apply_eco_profile(self, target: str = "all") -> Dict[str, Any]:
+        args = ["setting", "-v", str(target)]
+        for k, v in self.ECO_PROFILE.items():
+            args += ["-k", k, "-val", v]
+        res = self._run_mumu_cmd(args, timeout=40)
+        log_event("SUCCESS" if res.get("success") else "ERROR", "EMULATOR",
+                  "Áp cấu hình tiết kiệm (2 vCPU, 2GB, 540x960, 15FPS, GPU thấp) cho " + str(target))
+        return res
+
+    def ui_dump(self, index: str) -> str:
+        """Return the current UI hierarchy XML (uiautomator) or '' on failure."""
+        res = self.run_adb(index, ["shell", "uiautomator dump /sdcard/dr_ui.xml >/dev/null 2>&1; cat /sdcard/dr_ui.xml"],
+                           timeout=20)
+        out = res.get("output") or ""
+        i, j = out.find("<?xml"), out.rfind("</hierarchy>")
+        return out[i:j + len("</hierarchy>")] if i >= 0 and j > i else ""
+
 emu_manager = EmulatorManager()
+
 

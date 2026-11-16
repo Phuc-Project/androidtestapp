@@ -75,6 +75,82 @@ def init_db():
     )
     """)
 
+    # Google Play Closed Testing campaigns
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS test_campaigns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_name TEXT NOT NULL DEFAULT '',
+        package_name TEXT NOT NULL DEFAULT '',
+        optin_url TEXT DEFAULT '',
+        start_date TEXT NOT NULL,
+        target_days INTEGER NOT NULL DEFAULT 14,
+        target_testers INTEGER NOT NULL DEFAULT 12,
+        session_minutes INTEGER NOT NULL DEFAULT 3,
+        events_per_min INTEGER NOT NULL DEFAULT 60,
+        max_parallel INTEGER NOT NULL DEFAULT 4,
+        auto_run_time TEXT DEFAULT '',
+        shutdown_after INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'active',
+        last_auto_run_date TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # Per-VM tester state inside a campaign
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS campaign_testers (
+        campaign_id INTEGER NOT NULL,
+        vm_index TEXT NOT NULL,
+        opted_in INTEGER NOT NULL DEFAULT 0,
+        opted_in_at TEXT DEFAULT '',
+        installed INTEGER NOT NULL DEFAULT 0,
+        version_name TEXT DEFAULT '',
+        last_check TEXT DEFAULT '',
+        PRIMARY KEY (campaign_id, vm_index)
+    )
+    """)
+
+    # Daily test sessions (one row per VM run)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS test_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campaign_id INTEGER NOT NULL,
+        vm_index TEXT NOT NULL,
+        account_email TEXT DEFAULT '',
+        run_date TEXT NOT NULL,
+        started_at TEXT DEFAULT '',
+        finished_at TEXT DEFAULT '',
+        duration_sec INTEGER DEFAULT 0,
+        status TEXT NOT NULL,
+        version_name TEXT DEFAULT '',
+        crashes INTEGER DEFAULT 0,
+        anrs INTEGER DEFAULT 0,
+        message TEXT DEFAULT ''
+    )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_campaign ON test_sessions(campaign_id, vm_index, run_date)")
+
+    # Play Console checklist (manual steps the developer ticks off)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS console_checklist (
+        campaign_id INTEGER NOT NULL,
+        item TEXT NOT NULL,
+        done INTEGER NOT NULL DEFAULT 0,
+        done_at TEXT DEFAULT '',
+        PRIMARY KEY (campaign_id, item)
+    )
+    """)
+    try:
+        cursor.execute("ALTER TABLE test_campaigns ADD COLUMN console_url TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+    try:
+        cursor.execute("ALTER TABLE test_campaigns ADD COLUMN app_profile TEXT DEFAULT 'light'")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
     conn.commit()
     conn.close()
 
@@ -284,5 +360,135 @@ def save_vm_profile(vm_index: str, data: Dict[str, Any]):
         int(data.get("auto_restart", 0)),
         data.get("notes", "")
     ))
+    conn.commit()
+    conn.close()
+
+def delete_vm_profile(vm_index: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM vm_profiles WHERE vm_index = ?", (str(vm_index),))
+    conn.commit()
+    conn.close()
+    return True
+
+
+# ==================== Closed Testing Campaign helpers ====================
+CAMPAIGN_FIELDS = [
+    "app_name", "package_name", "optin_url", "start_date", "target_days", "target_testers",
+    "session_minutes", "events_per_min", "max_parallel", "app_profile", "auto_run_time", "shutdown_after",
+    "status", "last_auto_run_date", "notes", "console_url",
+]
+
+def get_current_campaign() -> Optional[Dict[str, Any]]:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM test_campaigns WHERE status != 'archived' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_campaign(campaign_id: int) -> Optional[Dict[str, Any]]:
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM test_campaigns WHERE id = ?", (campaign_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def create_campaign(data: Dict[str, Any]) -> int:
+    data = dict(data)
+    prof = data.get("app_profile") or "light"
+    if "max_parallel" not in data or not data["max_parallel"]:
+        data["max_parallel"] = 2 if prof == "heavy" else 4
+    fields = [f for f in CAMPAIGN_FIELDS if f in data]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cols = fields + ["created_at", "updated_at"]
+    vals = [data[f] for f in fields] + [now, now]
+    conn = get_connection()
+    cur = conn.execute(
+        f"INSERT INTO test_campaigns ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})", vals
+    )
+    cid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    log_event("SUCCESS", "CAMPAIGN", f"Tạo chiến dịch test '{data.get('app_name')}' ({data.get('package_name')})")
+    return cid
+
+def update_campaign(campaign_id: int, data: Dict[str, Any]) -> bool:
+    fields = [f for f in CAMPAIGN_FIELDS if f in data]
+    if not fields:
+        return False
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    sets = ", ".join(f"{f} = ?" for f in fields) + ", updated_at = ?"
+    vals = [data[f] for f in fields] + [now, campaign_id]
+    conn = get_connection()
+    conn.execute(f"UPDATE test_campaigns SET {sets} WHERE id = ?", vals)
+    conn.commit()
+    conn.close()
+    return True
+
+def get_campaign_testers(campaign_id: int) -> Dict[str, Dict[str, Any]]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM campaign_testers WHERE campaign_id = ?", (campaign_id,)).fetchall()
+    conn.close()
+    return {str(r["vm_index"]): dict(r) for r in rows}
+
+def upsert_campaign_tester(campaign_id: int, vm_index: str, **fields) -> None:
+    allowed = {"opted_in", "opted_in_at", "installed", "version_name", "last_check"}
+    fields = {k: v for k, v in fields.items() if k in allowed}
+    conn = get_connection()
+    conn.execute(
+        "INSERT OR IGNORE INTO campaign_testers (campaign_id, vm_index) VALUES (?, ?)",
+        (campaign_id, str(vm_index)),
+    )
+    if fields:
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(
+            f"UPDATE campaign_testers SET {sets} WHERE campaign_id = ? AND vm_index = ?",
+            list(fields.values()) + [campaign_id, str(vm_index)],
+        )
+    conn.commit()
+    conn.close()
+
+def add_test_session(data: Dict[str, Any]) -> int:
+    conn = get_connection()
+    cur = conn.execute("""
+    INSERT INTO test_sessions (campaign_id, vm_index, account_email, run_date, started_at, finished_at,
+        duration_sec, status, version_name, crashes, anrs, message)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data["campaign_id"], str(data["vm_index"]), data.get("account_email", ""), data["run_date"],
+        data.get("started_at", ""), data.get("finished_at", ""), int(data.get("duration_sec", 0)),
+        data.get("status", "failed"), data.get("version_name", ""), int(data.get("crashes", 0)),
+        int(data.get("anrs", 0)), data.get("message", ""),
+    ))
+    sid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return sid
+
+def get_test_sessions(campaign_id: int, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    conn = get_connection()
+    sql = "SELECT * FROM test_sessions WHERE campaign_id = ? ORDER BY id DESC"
+    params: list = [campaign_id]
+    if limit:
+        sql += " LIMIT ?"
+        params.append(int(limit))
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_checklist(campaign_id: int) -> Dict[str, Dict[str, Any]]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM console_checklist WHERE campaign_id = ?", (campaign_id,)).fetchall()
+    conn.close()
+    return {r["item"]: dict(r) for r in rows}
+
+
+def set_checklist_item(campaign_id: int, item: str, done: bool) -> None:
+    conn = get_connection()
+    conn.execute("""
+    INSERT INTO console_checklist (campaign_id, item, done, done_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(campaign_id, item) DO UPDATE SET done = excluded.done, done_at = excluded.done_at
+    """, (campaign_id, item, int(done), datetime.now().strftime("%Y-%m-%d %H:%M:%S") if done else ""))
     conn.commit()
     conn.close()

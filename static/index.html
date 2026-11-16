@@ -3,572 +3,528 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DroidRouter SaaS - Android Test Cluster</title>
+  <title>DroidTest</title>
+  <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-  <link rel="icon" type="image/png" href="/static/icon.png">
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#ffffff">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <meta name="theme-color" content="#15171C">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=12">
 </head>
 <body>
+<div class="shell">
 
-  <div class="app-layout">
-    <!-- Left Sidebar Navigation -->
-    <aside class="sidebar">
-      <div>
-        <div class="sidebar-brand">
-          <div class="brand-badge">D9</div>
-          <div class="brand-text">
-            <h1>DroidRouter SaaS</h1>
-            <p>Android Test Cluster Farm</p>
+  <!-- ============ Sidebar ============ -->
+  <aside class="sidebar">
+    <a class="brand" href="#/" aria-label="DroidTest – Tổng quan">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="0" fill="#15171C"/>
+        <g fill="#FFFFFF" fill-opacity=".9">
+          <rect x="6.5" y="9" width="3.5" height="3.5" rx="0"/><rect x="11.5" y="9" width="3.5" height="3.5" rx="0"/><rect x="16.5" y="9" width="3.5" height="3.5" rx="0"/><rect x="21.5" y="9" width="3.5" height="3.5" rx="0"/>
+          <rect x="6.5" y="14.25" width="3.5" height="3.5" rx="0"/><rect x="11.5" y="14.25" width="3.5" height="3.5" rx="0"/><rect x="16.5" y="14.25" width="3.5" height="3.5" rx="0"/><rect x="21.5" y="14.25" width="3.5" height="3.5" rx="0"/>
+          <rect x="6.5" y="19.5" width="3.5" height="3.5" rx="0"/><rect x="11.5" y="19.5" width="3.5" height="3.5" rx="0"/><rect x="16.5" y="19.5" width="3.5" height="3.5" rx="0"/>
+        </g>
+        <rect x="21.5" y="19.5" width="3.5" height="3.5" rx="0" fill="#2FBF8F"/>
+      </svg>
+      <span class="brand-name">DroidTest</span>
+    </a>
+
+    <nav class="sidenav" aria-label="Trang">
+      <span class="nav-label">Kiểm thử</span>
+      <a href="#/" data-nav="overview">Tổng quan</a>
+      <a href="#/play-console" data-nav="console">Play Console <span class="nav-count" id="navConsoleCount"></span></a>
+      <a href="#/lich-su" data-nav="history">Lịch sử</a>
+      <span class="nav-label">Thiết bị</span>
+      <a href="#/may-ao" data-nav="devices">Máy ảo <span class="nav-count" id="navVmCount"></span></a>
+      <a href="#/cong-cu" data-nav="tools">Công cụ</a>
+      <span class="nav-label">Hệ thống</span>
+      <a href="#/cai-dat" data-nav="settings">Cài đặt</a>
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-stats" aria-live="polite">
+        <div><span>Máy đang chạy</span><b><span id="hdrRunningCount">0</span>/<span id="hdrTotalCount">0</span></b></div>
+        <div><span>CPU</span><b id="statCpu">–</b></div>
+        <div><span>RAM</span><b id="statRam">–</b></div>
+      </div>
+      <button class="btn btn-secondary btn-block btn-sm" id="btnSideOpt" onclick="App.optimizeHardware()" title="Giải phóng RAM máy tính & dọn rác bộ nhớ">Tối ưu RAM &amp; SSD</button>
+      <button class="side-quit" id="btnQuitApp">Thoát ứng dụng</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ================= PAGE: Overview ================= -->
+    <section class="view" data-view="overview">
+      <div id="overviewHeader"></div>
+
+      <div id="quickStart" class="card quick-start" hidden>
+        <div class="card-head">
+          <div>
+            <h3>Bắt đầu kiểm thử tự động</h3>
+            <p class="card-sub">Dán link kiểm thử (hoặc link Play Store) và chọn loại app. Tool sẽ tự gán 12 tài khoản, tạo máy nếu thiếu, tự đăng nhập Google và chạy theo cụm hàng ngày.</p>
           </div>
         </div>
-
-        <nav class="sidebar-nav">
-          <div class="nav-section-title">Kiểm thử & Thiết bị</div>
-          <button class="sidebar-btn active" data-tab="instances">
-            <span>📱</span>
-            <span>Thiết bị & Cụm máy</span>
-            <span class="btn-badge" id="sidebarVmCount">12</span>
-          </button>
-          <button class="sidebar-btn" data-tab="testing">
-            <span>🧪</span>
-            <span>Trung tâm Test App</span>
-            <span class="btn-badge" style="background:#eff6ff;color:#2563eb;">Suite</span>
-          </button>
-          <button class="sidebar-btn" data-tab="remote">
-            <span>🖥️</span>
-            <span>Màn hình điều khiển</span>
-          </button>
-
-          <div class="nav-section-title" style="margin-top:10px;">Định tuyến & Tài khoản</div>
-          <button class="sidebar-btn" data-tab="accounts">
-            <span>🔑</span>
-            <span>Kho tài khoản & 2FA</span>
-          </button>
-          <button class="sidebar-btn" data-tab="proxies">
-            <span>🌐</span>
-            <span>Cổng Proxy Gateway</span>
-          </button>
-          <button class="sidebar-btn" data-tab="services">
-            <span>📡</span>
-            <span>Lệnh Shell đồng loạt</span>
-          </button>
-
-          <div class="nav-section-title" style="margin-top:10px;">Hệ thống & Cụm</div>
-          <button class="sidebar-btn" data-tab="logs">
-            <span>📊</span>
-            <span>Nhật ký hoạt động</span>
-          </button>
-          <button class="sidebar-btn" data-tab="settings">
-            <span>⚙️</span>
-            <span>Cài đặt hệ thống</span>
-          </button>
-        </nav>
+        <div class="field" style="margin-bottom:12px">
+          <label class="field-label" for="cmpQuickLink">Link kiểm thử hoặc Package name</label>
+          <input type="text" id="cmpQuickLink" class="input input-lg mono" placeholder="https://play.google.com/apps/testing/com.congty.app hoặc com.congty.app" autocomplete="off">
+        </div>
+        <div class="form-grid" style="margin-bottom:14px">
+          <div class="field">
+            <label class="field-label" for="cmpQuickProfile">Loại ứng dụng (Phân cụm máy test)</label>
+            <select id="cmpQuickProfile" class="input">
+              <option value="light" selected>App nhẹ – Tối đa 4 máy/lần (3 cụm: 4-4-4)</option>
+              <option value="heavy">App nặng – Tối đa 2 máy/lần (6 cụm: 2-2-2-2-2-2)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="cmpQuickTime">Giờ tự chạy hằng ngày</label>
+            <input type="time" id="cmpQuickTime" class="input" value="09:00">
+          </div>
+        </div>
+        <div class="page-actions" style="margin-bottom:8px">
+          <button class="btn btn-primary btn-lg" id="cmpQuickBtn" onclick="CampaignModule.quickStart()">Bắt đầu chiến dịch test</button>
+        </div>
+        <p class="hint">Lấy link trong Play Console → Kiểm thử kín → Người thử nghiệm → “Tham gia trên web”. Tool sẽ tự gán 12 tài khoản trong <a href="#/cai-dat">Cài đặt</a>, tham gia test, cài app từ Play Store và dùng app mỗi ngày. Mọi máy chạy ngầm.</p>
       </div>
 
-      <!-- Sidebar Footer (Host Hardware Specs) -->
-      <div class="sidebar-footer">
-        <div class="host-card">
-          <div class="host-card-title">
-            <span>💻 Host Hardware</span>
-            <span style="color:#10b981;font-weight:700;">Online</span>
-          </div>
-          <div class="host-card-sub">
-            <div>• CPU: i5-12450H (12 vCPUs)</div>
-            <div>• RAM: 32 GB DDR4</div>
-            <div>• GPU: NVIDIA RTX 4050</div>
-            <div style="color:#2563eb;font-weight:600;margin-top:2px;">• Preset: 1 vCPU • 2GB • 20FPS</div>
+      <div id="overviewBody"></div>
+      <div id="cmpJob"></div>
+    </section>
+
+    <!-- ================= PAGE: Play Console ================= -->
+    <section class="view" data-view="console" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Play Console</h1>
+          <p>Những việc phải làm trên Play Console để được phát hành chính thức. Bước 12 tester × 14 ngày do DroidTest tự theo dõi.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-primary" id="consoleOpenBtn" href="#" target="_blank" rel="noopener" hidden>Mở Play Console</a>
+        </div>
+      </div>
+      <div id="consoleBody"></div>
+    </section>
+
+    <!-- ================= PAGE: History ================= -->
+    <section class="view" data-view="history" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Lịch sử</h1>
+          <p>Mọi phiên test đã chạy và nhật ký hoạt động của hệ thống.</p>
+        </div>
+        <div class="page-actions">
+          <a class="btn btn-secondary" href="/api/campaign/report.csv">Xuất CSV</a>
+        </div>
+      </div>
+      <div class="tabs attached" role="tablist">
+        <button class="tab-btn active" data-history-tab="sessions" onclick="HistoryModule.setTab('sessions')">Phiên test</button>
+        <button class="tab-btn" data-history-tab="logs" onclick="HistoryModule.setTab('logs')">Nhật ký hệ thống</button>
+      </div>
+      <div class="card table-card flush-top">
+        <div class="filters" id="historyFilters">
+          <select class="input" id="hfVm" onchange="HistoryModule.render()"><option value="">Tất cả máy</option></select>
+          <select class="input" id="hfStatus" onchange="HistoryModule.render()">
+            <option value="">Mọi trạng thái</option>
+            <option value="success">Thành công</option>
+            <option value="failed">Lỗi</option>
+            <option value="no_account">Chưa đăng nhập</option>
+            <option value="not_installed">Chưa cài app</option>
+            <option value="stopped">Đã dừng</option>
+          </select>
+          <input type="date" class="input" id="hfDate" onchange="HistoryModule.render()">
+          <span class="filters-count" id="hfCount"></span>
+        </div>
+        <div id="historyBody"></div>
+      </div>
+    </section>
+
+    <!-- ================= PAGE: Devices ================= -->
+    <section class="view" data-view="devices" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Máy ảo</h1>
+          <p>Mỗi máy là một tester. Máy luôn chạy ngầm; xem màn hình và thao tác ngay tại đây.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" id="btnStartAll">Bật tất cả</button>
+          <button class="btn btn-secondary" id="btnStopAll">Tắt tất cả</button>
+          <div class="menu">
+            <button class="btn btn-secondary" data-menu-toggle aria-haspopup="true">
+              Thêm
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="menu-list menu-right" role="menu">
+              <button role="menuitem" onclick="InstancesModule.ensureCount(12)">Tạo đủ 12 máy</button>
+              <button role="menuitem" onclick="InstancesModule.openCreateModal()">Thêm một máy</button>
+              <div class="menu-sep"></div>
+              <button role="menuitem" id="btnArrange">Xếp cửa sổ MuMu</button>
+              <button role="menuitem" id="btnRefreshAll">Làm mới dữ liệu</button>
+            </div>
           </div>
         </div>
       </div>
-    </aside>
+      <div class="card table-card">
+        <div id="vmGrid"></div>
+      </div>
+    </section>
 
-    <!-- Main Content Area -->
-    <main class="main-content">
-      <!-- Top App Header -->
-      <header class="app-header">
-        <div class="header-left">
-          <h2 class="header-title" id="currentViewTitle">Thiết bị & Máy ảo (Device Nodes)</h2>
-          <div class="cluster-status-pill">
-            <span class="pulse-dot"></span>
-            <span>Cụm 12 Máy Đã Tối Ưu (540x960 @ 20FPS)</span>
+    <!-- ================= PAGE: Tools ================= -->
+    <section class="view" data-view="tools" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Công cụ</h1>
+          <p>Gửi lệnh tới tất cả máy đang chạy. Dùng để thử nhanh, không tính vào lịch test.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Tối ưu phần cứng máy tính</h3>
+            <p class="card-sub">Giải phóng RAM (Working Set) qua Win32 API, dọn logcat trên SSD và tắt animation đồ hoạ trên máy ảo để giảm tải GPU.</p>
           </div>
         </div>
-
-        <div class="header-actions">
-          <button class="btn btn-optimize" id="btnOptimizeCluster" title="Tối ưu lại tài nguyên cho 12 máy chạy liên tục">⚡ Tối Ưu 12 Máy</button>
-          <button class="btn btn-primary" id="btnStartAll" title="Khởi động tất cả máy ảo">🟢 Bật Tất Cả</button>
-          <button class="btn btn-danger" id="btnStopAll" title="Tắt tất cả máy ảo">🛑 Tắt Tất Cả</button>
-          <button class="btn btn-secondary" id="btnArrange" title="Tự động xếp lưới cửa sổ trên màn hình">📐 Xếp Cửa Sổ</button>
-          <button class="btn btn-secondary" id="btnRefreshAll" title="Làm mới trạng thái">🔄 Làm Mới</button>
-          <button class="btn btn-secondary" id="btnQuitApp" title="Dừng hoàn toàn Engine và đóng ứng dụng" style="color:var(--rose);">❌ Thoát</button>
+        <div class="tools-row">
+          <button class="btn btn-primary" onclick="App.optimizeHardware()">Tối ưu toàn bộ</button>
+          <button class="btn btn-secondary" onclick="App.cleanRamOnly()">Giải phóng RAM</button>
+          <button class="btn btn-secondary" onclick="App.optimizeGpuOnly()">Tắt animation (giảm tải GPU)</button>
         </div>
-      </header>
+        <p class="hint">Nên chạy khi máy tính bắt đầu chậm hoặc trước khi bật nhiều máy ảo cùng lúc.</p>
+      </div>
 
-      <div class="container">
-        <!-- Top KPI Telemetry Cards -->
-        <div class="telemetry-grid">
-          <!-- Card 1: Active Nodes -->
-          <div class="stat-card">
-            <div>
-              <div class="stat-header">
-                <span class="stat-title">Máy ảo đang chạy</span>
-                <span class="stat-icon">📱</span>
-              </div>
-              <div class="stat-value" id="statVms">0 / 0</div>
-              <div class="stat-sub" id="statVmsSub">0 Đang chạy • 0 Đã dừng</div>
-            </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="statVmsBar" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <!-- Card 2: CPU Load -->
-          <div class="stat-card">
-            <div>
-              <div class="stat-header">
-                <span class="stat-title">Tải CPU Host</span>
-                <span class="stat-icon">⚡</span>
-              </div>
-              <div class="stat-value" id="statCpu">0%</div>
-              <div class="stat-sub">12th Gen i5-12450H (12 luồng)</div>
-            </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="statCpuBar" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <!-- Card 3: Memory Load -->
-          <div class="stat-card">
-            <div>
-              <div class="stat-header">
-                <span class="stat-title">Bộ nhớ RAM Host</span>
-                <span class="stat-icon">💾</span>
-              </div>
-              <div class="stat-value" id="statRam">0%</div>
-              <div class="stat-sub" id="statRamSub">0 / 32 GB khả dụng</div>
-            </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="statRamBar" style="width: 0%;"></div>
-            </div>
-          </div>
-
-          <!-- Card 4: Cluster Optimization Preset -->
-          <div class="stat-card">
-            <div>
-              <div class="stat-header">
-                <span class="stat-title">Cấu hình Cụm Test</span>
-                <span class="stat-icon">🎯</span>
-              </div>
-              <div class="stat-value" style="color:#2563eb;font-size:22px;">1 vCPU • 2GB</div>
-              <div class="stat-sub">540x960 @ 20FPS (Siêu tiết kiệm tải)</div>
-            </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" style="width: 100%; background: #4f46e5;"></div>
-            </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Lệnh hàng loạt</h3>
+            <p class="card-sub">Áp dụng cho tất cả máy ảo đang chạy. Nhập package name của app cần thao tác.</p>
           </div>
         </div>
-
-        <!-- ==================== TAB 1: DEVICE FARM ==================== -->
-        <div class="tab-content active" id="tab-instances">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:700;">Danh sách thiết bị máy ảo trong Cụm</h3>
-              <p style="font-size:12px;color:var(--text-muted);">Quản lý độc lập từng máy ảo, bật tắt trực tiếp không qua trình quản lý Multi-Drive.</p>
-            </div>
-            <button class="btn btn-primary" onclick="InstancesModule.openCreateModal()">+ Tạo Máy Ảo Mới</button>
-          </div>
-          <div class="vm-grid" id="vmGrid"></div>
+        <div class="tools-row">
+          <input type="text" id="testTargetPackage" class="input mono" placeholder="com.congty.app">
+          <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('launch')">Mở app</button>
+          <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('stop')">Buộc dừng</button>
+          <button class="btn btn-secondary" onclick="if(confirm('Xoá toàn bộ dữ liệu app trên các máy đang chạy?')) TestingModule.runBatchAction('clear')">Xoá dữ liệu</button>
+          <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('monkey')">Monkey 300 thao tác</button>
+          <label class="btn btn-secondary">Cài APK…
+            <input type="file" accept=".apk" hidden onchange="TestingModule.deployApk(this.files[0]); this.value='';">
+          </label>
         </div>
+        <p class="hint">APK cài tay chỉ để thử nhanh. Google chỉ tính tester cài app từ Play Store sau khi tham gia test.</p>
+        <div id="testConsoleContainer" hidden>
+          <div class="result-list" id="testConsoleBox"></div>
+        </div>
+      </div>
+    </section>
 
-        <!-- ==================== TAB 2: APP TEST SUITE ==================== -->
-        <div class="tab-content" id="tab-testing">
-          <div class="test-suite-panel">
-            <!-- Left Card: Target App Control -->
+    <!-- ================= PAGE: Settings ================= -->
+    <section class="view" data-view="settings" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Cài đặt</h1>
+          <p>Tài khoản tester, cài đặt chiến dịch và cấu hình máy chủ.</p>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="Mục cài đặt">
+        <a class="tab-btn" href="#/cai-dat" data-tab="accounts">Tài khoản Google <span class="nav-count" id="googlePoolCount">0</span></a>
+        <a class="tab-btn" href="#/cai-dat/chien-dich" data-tab="campaign">Chiến dịch</a>
+        <a class="tab-btn" href="#/cai-dat/he-thong" data-tab="system">Hệ thống</a>
+      </nav>
+
+      <div class="settings">
+        <div class="settings-body">
+
+          <!-- ---------- Tab: Google accounts ---------- -->
+          <div class="tab" data-tab-panel="accounts">
             <div class="card">
-              <div class="card-title">🧪 Điều khiển ứng dụng cần Test trên 12 máy</div>
-              <div class="card-desc">Thực hiện các thao tác mở, tắt, dọn dẹp hoặc stress test ứng dụng hàng loạt.</div>
-
-              <div class="form-group">
-                <label class="form-label">Tên Package Ứng Dụng (Package Name)</label>
-                <input type="text" id="testTargetPackage" class="form-input" placeholder="Ví dụ: com.example.testapp hoặc com.zhiliaoapp.musically" style="font-family:'JetBrains Mono',monospace;">
+              <div class="card-head">
+                <div>
+                  <h3>Thêm tài khoản Gmail</h3>
+                  <p class="card-sub">Mỗi máy dùng một tài khoản. Tool dùng email và mật khẩu này để tự đăng nhập Google trên máy ảo.</p>
+                </div>
               </div>
-
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                <button class="btn btn-primary" onclick="TestingModule.runBatchAction('launch')">🚀 Mở App trên tất cả</button>
-                <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('stop')">🛑 Buộc dừng App</button>
-                <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('clear')">🧹 Xóa sạch Data & Cache</button>
-                <button class="btn btn-secondary" onclick="TestingModule.runBatchAction('monkey')">🐒 Chạy Monkey Test (300 events)</button>
-              </div>
-
-              <div class="card-title" style="margin-top:20px;">📦 Cài đặt APK đồng loạt lên 12 máy</div>
-              <div class="card-desc">Chọn file APK một lần duy nhất để tự động cài đặt song song trên các máy đang chạy.</div>
-              <div style="border:2px dashed var(--border-light);border-radius:var(--radius-sm);padding:24px;text-align:center;background:#f8fafc;">
-                <input type="file" id="batchApkInput" accept=".apk" style="display:none;" onchange="TestingModule.deployApk(this.files[0])">
-                <button class="btn btn-secondary" onclick="document.getElementById('batchApkInput').click()">📁 Chọn File .APK để cài cho tất cả máy</button>
-                <p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Hỗ trợ file APK từ máy tính, tự động phân phối và cài đặt ngầm.</p>
-              </div>
+              <form class="account-form" onsubmit="event.preventDefault(); AccountsModule.submitQuickAdd();">
+                <div class="field" style="margin:0">
+                  <label class="field-label" for="quickGoogleEmail">Email</label>
+                  <input type="email" id="quickGoogleEmail" class="input" placeholder="tester01@gmail.com" autocomplete="off">
+                </div>
+                <div class="field" style="margin:0">
+                  <label class="field-label" for="quickGooglePass">Mật khẩu</label>
+                  <input type="password" id="quickGooglePass" class="input" autocomplete="new-password">
+                </div>
+                <div class="field" style="margin:0">
+                  <label class="field-label" for="quickGoogle2fa">Khoá 2FA <span class="opt">(nếu có)</span></label>
+                  <input type="text" id="quickGoogle2fa" class="input mono" placeholder="JBSWY3DPEHPK3PXP" autocomplete="off">
+                </div>
+                <button type="submit" class="btn btn-primary">Thêm tài khoản</button>
+              </form>
+              <p class="hint">Có sẵn danh sách? <button class="link-btn" onclick="AccountsModule.openBulkModal()">Nhập nhiều tài khoản cùng lúc</button></p>
             </div>
 
-            <!-- Right Card: Test Logs & Realtime Console -->
+            <div class="card table-card" style="margin-top:16px">
+              <div class="table-toolbar">
+                <div>
+                  <h3>Danh sách tài khoản</h3>
+                  <p class="card-sub">Thêm đúng các email này vào danh sách người thử nghiệm trong Play Console.</p>
+                </div>
+                <div class="page-actions">
+                  <button class="btn btn-secondary btn-sm" onclick="AccountsModule.copyEmails()">Sao chép danh sách email</button>
+                  <button class="btn btn-secondary btn-sm" onclick="InstancesModule.autoAssignAndLoginAll()">Gán cho máy trống</button>
+                </div>
+              </div>
+              <div id="googleAccountChips"></div>
+            </div>
+          </div>
+
+          <!-- ---------- Tab: Campaign ---------- -->
+          <div class="tab" data-tab-panel="campaign" hidden>
             <div class="card">
-              <div class="card-title" style="justify-content:space-between;">
-                <span>📋 Bảng điều khiển kết quả kiểm thử</span>
-                <span id="testRunningCount" style="font-size:11.5px;color:#2563eb;font-weight:600;">Đang kiểm tra...</span>
-              </div>
-              <div class="card-desc">Kết quả thực thi lệnh, cài đặt APK hoặc Monkey testing trên từng node máy ảo.</div>
-              <div class="console-box" id="testConsoleBox" style="min-height:360px;">
-                <div style="color:#94a3b8;">Nhập Package hoặc chọn APK ở bên trái để bắt đầu kiểm thử tự động trên cụm 12 máy.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==================== TAB 3: LIVE REMOTE SCREEN ==================== -->
-        <div class="tab-content" id="tab-remote">
-          <div class="remote-layout">
-            <!-- Screen Viewport -->
-            <div class="screen-container">
-              <div class="screen-header-bar">
-                <select class="form-select" id="remoteVmSelect" style="width:auto;padding:3px 8px;font-size:12px;background:#334155;color:#fff;border-color:#475569;" onchange="RemoteModule.onVmChange(this.value)">
-                  <option value="0">VM #0</option>
-                </select>
-                <span id="screenStatusText" style="color:#94a3b8;font-size:11px;">Đang kết nối...</span>
-              </div>
-
-              <div class="screen-canvas-wrapper" onpointerdown="RemoteModule.handlePointerDown(event)" onpointerup="RemoteModule.handlePointerUp(event)">
-                <img id="remoteScreenImg" alt="Device Screen" draggable="false" style="user-select:none;pointer-events:auto;" />
-              </div>
-
-              <!-- Navigation Keys -->
-              <div class="screen-navbar">
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('back')" title="Back">⬅️ Quay lại</button>
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('home')" title="Home">🔘 Trang chủ</button>
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('recents')" title="Recents">📑 Đa nhiệm</button>
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('power')" title="Nguồn">⚡ Nguồn</button>
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('volume_up')" title="Vol+">🔊 +</button>
-                <button class="nav-key-btn" onclick="RemoteModule.sendKey('volume_down')" title="Vol-">🔉 -</button>
-              </div>
-            </div>
-
-            <!-- Remote Controls -->
-            <div style="display:flex;flex-direction:column;gap:16px;">
-              <div class="card" style="margin-bottom:0;">
-                <div class="card-title">⌨️ Gõ văn bản & Phím điều hướng trực tiếp vào máy ảo</div>
-                <div class="form-group" style="display:flex;gap:8px;">
-                  <input type="text" id="remoteTextInput" class="form-input" placeholder="Gõ văn bản để gửi vào trường nhập liệu trên máy ảo..." onkeydown="if(event.key==='Enter') RemoteModule.sendText()">
-                  <button class="btn btn-primary" onclick="RemoteModule.sendText()">Gửi</button>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('enter')">↵ Enter</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('delete')">⌫ Xóa</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('space')">Dấu cách</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.sendKey('tab')">Tab</button>
+              <div class="card-head">
+                <div>
+                  <h3>Chiến dịch hiện tại</h3>
+                  <p class="card-sub" id="cmpSettingsSub">Để bắt đầu nhanh, dán link test ở trang Tổng quan.</p>
                 </div>
               </div>
-
-              <div class="card" style="margin-bottom:0;">
-                <div class="card-title">🚀 Mở nhanh ứng dụng trên máy này</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:12px;">
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.settings')">⚙️ Cài đặt</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.vending')">🛍️ CH Play</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.android.chrome')">🌐 Chrome</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.zhiliaoapp.musically')">🎵 TikTok</button>
-                  <button class="btn btn-secondary btn-sm" onclick="RemoteModule.launchApp('com.facebook.katana')">🔷 Facebook</button>
+              <div class="form-grid">
+                <div class="field">
+                  <label class="field-label" for="cmpAppName">Tên app</label>
+                  <input type="text" id="cmpAppName" class="input" placeholder="Ứng dụng của tôi">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpPackage">Package</label>
+                  <input type="text" id="cmpPackage" class="input mono" placeholder="com.congty.app">
+                </div>
+                <div class="field span-2">
+                  <label class="field-label" for="cmpOptinUrl">Link tham gia trên web</label>
+                  <input type="url" id="cmpOptinUrl" class="input" placeholder="Để trống sẽ dùng https://play.google.com/apps/testing/<package>">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpStartDate">Ngày bắt đầu đếm</label>
+                  <input type="date" id="cmpStartDate" class="input">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpAutoTime">Tự chạy hằng ngày lúc</label>
+                  <input type="time" id="cmpAutoTime" class="input">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpTargetTesters">Số tester tối thiểu</label>
+                  <input type="number" id="cmpTargetTesters" class="input" min="1" max="100">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpTargetDays">Số ngày liên tục</label>
+                  <input type="number" id="cmpTargetDays" class="input" min="1" max="90">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpMinutes">Phút dùng app mỗi máy</label>
+                  <input type="number" id="cmpMinutes" class="input" min="1" max="60">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpEvents">Thao tác mỗi phút</label>
+                  <input type="number" id="cmpEvents" class="input" min="0" max="600">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpAppProfile">Chế độ & Cụm máy test</label>
+                  <select id="cmpAppProfile" class="input" onchange="CampaignModule.onProfileChange(this.value)">
+                    <option value="light">App nhẹ – Tối đa 4 máy/lần (3 cụm: 4-4-4)</option>
+                    <option value="heavy">App nặng – Tối đa 2 máy/lần (6 cụm: 2-2-2-2-2-2)</option>
+                    <option value="custom">Tùy chỉnh số máy</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpParallel">Số máy chạy cùng lúc</label>
+                  <input type="number" id="cmpParallel" class="input" min="1" max="12">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="cmpStatus">Trạng thái</label>
+                  <select id="cmpStatus" class="input">
+                    <option value="active">Đang chạy</option>
+                    <option value="paused">Tạm dừng</option>
+                  </select>
+                </div>
+                <label class="check span-2">
+                  <input type="checkbox" id="cmpShutdownAfter">
+                  <span>Tắt máy sau khi test xong (chỉ những máy do tool bật)</span>
+                </label>
+              </div>
+              <div class="form-foot">
+                <button class="btn btn-ghost-danger" id="cmpArchiveBtn" onclick="CampaignModule.archive()">Kết thúc chiến dịch</button>
+                <div class="page-actions">
+                  <button class="btn btn-secondary" onclick="CampaignModule.fillConfig()">Huỷ thay đổi</button>
+                  <button class="btn btn-primary" onclick="CampaignModule.saveConfig()">Lưu cài đặt</button>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div class="card" style="margin-bottom:0;">
-                <div class="card-title">📦 Cài đặt APK riêng cho máy này</div>
-                <input type="file" id="singleApkInput" accept=".apk" style="display:none;" onchange="RemoteModule.installApkFile(this.files[0])">
-                <button class="btn btn-secondary" onclick="document.getElementById('singleApkInput').click()">📁 Chọn File .APK</button>
+          <!-- ---------- Tab: System ---------- -->
+          <div class="tab" data-tab-panel="system" hidden>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>Cấu hình máy ảo</h3>
+                  <p class="card-sub">Áp cho tất cả máy: 2 vCPU · 2 GB RAM · 540×960 · 15 FPS · GPU thấp · tắt âm thanh. Máy đang chạy sẽ áp dụng sau khi khởi động lại.</p>
+                </div>
+                <button class="btn btn-secondary" id="btnOptimizeCluster">Áp cấu hình tiết kiệm</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:16px">
+              <div class="card-head"><div><h3>Đường dẫn công cụ</h3><p class="card-sub">Chỉ cần sửa khi MuMuPlayer hoặc ADB cài ở thư mục khác.</p></div></div>
+              <div class="field">
+                <label class="field-label" for="sysMumuPath">MuMuManager.exe</label>
+                <input type="text" id="sysMumuPath" class="input mono">
+              </div>
+              <div class="field">
+                <label class="field-label" for="sysAdbPath">adb.exe</label>
+                <input type="text" id="sysAdbPath" class="input mono">
+              </div>
+              <div class="card-head" style="margin:20px 0 12px"><div><h3>Khoá dashboard</h3><p class="card-sub">Yêu cầu nhập mã PIN mỗi khi mở dashboard.</p></div></div>
+              <label class="check" style="margin-bottom:12px">
+                <input type="checkbox" id="sysPinEnabled">
+                <span>Bật khoá bằng mã PIN</span>
+              </label>
+              <div class="field" style="max-width:260px">
+                <label class="field-label" for="sysPinCode">Mã PIN mới</label>
+                <input type="password" id="sysPinCode" class="input mono" placeholder="Để trống nếu giữ mã cũ" autocomplete="new-password">
+              </div>
+              <div class="form-foot">
+                <span></span>
+                <button class="btn btn-primary" onclick="App.saveSystemSettings()">Lưu cài đặt</button>
               </div>
             </div>
           </div>
+
         </div>
-
-        <!-- ==================== TAB 4: ACCOUNT VAULT ==================== -->
-        <div class="tab-content" id="tab-accounts">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:700;">Kho lưu trữ tài khoản & Bộ sinh mã 2FA</h3>
-              <p style="font-size:12px;color:var(--text-muted);">Lưu thông tin đăng nhập, sinh mã 2FA TOTP thời gian thực và 1-click tự động gõ vào máy ảo.</p>
-            </div>
-            <button class="btn btn-primary" onclick="AccountsModule.openAddModal()">+ Thêm Tài Khoản</button>
-          </div>
-          <div id="accountsList"></div>
-        </div>
-
-        <!-- ==================== TAB 5: PROXY ROUTER ==================== -->
-        <div class="tab-content" id="tab-proxies">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div>
-              <h3 style="font-size:15px;font-weight:700;">Cổng định tuyến Proxy Gateway</h3>
-              <p style="font-size:12px;color:var(--text-muted);">Định tuyến mạng cho từng máy ảo qua HTTP/SOCKS5, kiểm tra Ping ms và vị trí IP trực tiếp.</p>
-            </div>
-            <button class="btn btn-primary" onclick="ProxiesModule.openAddModal()">+ Thêm Proxy</button>
-          </div>
-          <div id="proxyList"></div>
-        </div>
-
-        <!-- ==================== TAB 6: BROADCAST SHELL ==================== -->
-        <div class="tab-content" id="tab-services">
-          <div class="card">
-            <div class="card-title">📡 Gửi lệnh ADB Shell hàng loạt</div>
-            <p class="card-desc">Thực thi lệnh shell đồng thời trên toàn bộ các máy ảo đang chạy mà không cần mở từng cửa sổ.</p>
-
-            <div style="margin-bottom:12px;font-size:12px;color:#2563eb;font-weight:600;" id="broadcastRunningTarget">Đang quét các máy đang chạy...</div>
-
-            <div class="form-group" style="display:flex;gap:8px;">
-              <input type="text" id="broadcastCmdInput" class="form-input" style="font-family:'JetBrains Mono',monospace;" placeholder="Ví dụ: input keyevent 3 (Về Home) hoặc pm list packages">
-              <button class="btn btn-primary" onclick="ServicesModule.executeBroadcast()">⚡ Chạy Lệnh</button>
-            </div>
-
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-              <span style="font-size:11px;color:var(--text-muted);align-self:center;">Mẫu lệnh nhanh:</span>
-              <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('input keyevent 3')">Về Trang chủ (Home)</button>
-              <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('input keyevent 4')">Quay lại (Back)</button>
-              <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('pm clear com.android.chrome')">Xóa Cache Chrome</button>
-              <button class="btn btn-secondary btn-sm" onclick="ServicesModule.setPresetCommand('settings get global http_proxy')">Xem cấu hình Proxy</button>
-            </div>
-
-            <div class="console-box" id="broadcastResultBox" style="min-height:140px;">
-              <span style="color:#94a3b8;">Kết quả chạy lệnh sẽ hiển thị tại đây...</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- ==================== TAB 7: LOGS ==================== -->
-        <div class="tab-content" id="tab-logs">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-            <h3 style="font-size:15px;font-weight:700;">Nhật ký sự kiện hệ thống</h3>
-            <button class="btn btn-secondary btn-sm" onclick="App.loadLogs()">🔄 Tải lại Nhật ký</button>
-          </div>
-          <div class="console-box" id="systemLogBox"></div>
-        </div>
-
-        <!-- ==================== TAB 8: SETTINGS ==================== -->
-        <div class="tab-content" id="tab-settings">
-          <div class="card" style="max-width:720px;margin:0 auto;">
-            <div class="card-title">⚙️ Cấu hình Engine & Hệ thống</div>
-            <form id="settingsForm">
-              <div class="form-group">
-                <label class="form-label">Tên Bảng Điều Khiển (App Title)</label>
-                <input type="text" id="settAppTitle" class="form-input">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Đường dẫn MuMuManager.exe</label>
-                <input type="text" id="settMumuPath" class="form-input" style="font-family:'JetBrains Mono',monospace;">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Đường dẫn ADB.exe</label>
-                <input type="text" id="settAdbPath" class="form-input" style="font-family:'JetBrains Mono',monospace;">
-              </div>
-              <div class="form-group">
-                <label class="form-label">Chu kỳ tự động làm mới (Giây)</label>
-                <input type="number" id="settRefreshSec" class="form-input" min="2" max="60">
-              </div>
-              <div class="form-group" style="display:flex;align-items:center;gap:10px;margin-top:16px;">
-                <input type="checkbox" id="settPinEnabled" style="width:16px;height:16px;accent-color:#2563eb;">
-                <label for="settPinEnabled" style="font-size:13px;cursor:pointer;font-weight:600;">Bật mã PIN bảo vệ Dashboard khi mở</label>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Mã PIN mới (Để trống nếu giữ nguyên)</label>
-                <input type="password" id="settPinCode" class="form-input" placeholder="Ví dụ: 1234">
-              </div>
-              <div style="display:flex;gap:10px;margin-top:20px;">
-                <button type="submit" class="btn btn-primary">💾 Lưu Cấu Hình</button>
-                <button type="button" class="btn btn-optimize" onclick="TestingModule.autoOptimizeCluster()">⚡ Tối Ưu Cụm 12 Máy Ngay</button>
-              </div>
-            </form>
-          </div>
-        </div>
-
       </div>
-    </main>
-  </div>
+    </section>
+  </main>
+</div>
 
-  <!-- Modal: Create VM -->
-  <div class="modal-overlay" id="modalCreateVm">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">Tạo máy ảo Android mới</div>
-        <button class="modal-close" onclick="document.getElementById('modalCreateVm').classList.remove('active')">&times;</button>
+  <!-- ============ Modal: bulk accounts ============ -->
+  <div class="modal-overlay" id="modalBulkGoogle">
+    <div class="modal" role="dialog" aria-labelledby="bulkTitle" style="max-width:560px;">
+      <div class="modal-head">
+        <h3 id="bulkTitle">Nhập nhiều tài khoản</h3>
+        <button class="modal-x" onclick="document.getElementById('modalBulkGoogle').classList.remove('active')" aria-label="Đóng">&times;</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Phiên bản Android</label>
-        <select class="form-select" id="newVmVersion">
-          <option value="15" selected>Android 15 (MuMu 12)</option>
-          <option value="12">Android 12</option>
-          <option value="auto">Mặc định (Auto)</option>
-        </select>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
-        <button class="btn btn-secondary" onclick="document.getElementById('modalCreateVm').classList.remove('active')">Hủy</button>
-        <button class="btn btn-primary" onclick="InstancesModule.submitCreateVm()">Tạo máy</button>
+      <p class="modal-text">Mỗi dòng một tài khoản: <code>email|mật khẩu</code>. Nếu tài khoản bật xác minh 2 bước, thêm khoá 2FA ở cột thứ ba: <code>email|mật khẩu|khoá 2FA</code>.</p>
+      <textarea id="bulkGoogleInput" class="input mono" rows="9" placeholder="tester01@gmail.com|matkhau01&#10;tester02@gmail.com|matkhau02|JBSWY3DPEHPK3PXP"></textarea>
+      <div class="modal-foot">
+        <span></span>
+        <div class="modal-foot-right">
+          <button class="btn btn-secondary" onclick="document.getElementById('modalBulkGoogle').classList.remove('active')">Huỷ</button>
+          <button class="btn btn-primary" onclick="AccountsModule.submitBulkGoogle()">Thêm vào danh sách</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Hardware Simulation -->
+  <!-- ============ Modal: live screen ============ -->
+  <div class="modal-overlay" id="modalRemote">
+    <div class="modal modal-screen" role="dialog" aria-labelledby="remoteModalTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="remoteModalTitle">Màn hình</h3>
+          <span class="modal-sub" id="screenStatusText">Đang kết nối…</span>
+        </div>
+        <button class="modal-x" onclick="RemoteModule.closeModal()" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="screen">
+        <div class="screen-canvas-wrapper" onpointerdown="RemoteModule.handlePointerDown(event)" onpointerup="RemoteModule.handlePointerUp(event)">
+          <img id="remoteScreenImg" alt="Màn hình máy ảo" draggable="false">
+        </div>
+        <div class="screen-keys">
+          <button onclick="RemoteModule.sendKey('back')">Quay lại</button>
+          <button onclick="RemoteModule.sendKey('home')">Màn hình chính</button>
+          <button onclick="RemoteModule.sendKey('recents')">Đa nhiệm</button>
+          <button onclick="RemoteModule.sendKey('power')">Nguồn</button>
+        </div>
+      </div>
+      <form class="screen-type" onsubmit="event.preventDefault(); RemoteModule.sendText();">
+        <input type="text" id="remoteTextInput" class="input" placeholder="Gõ chữ vào ô đang chọn trên máy">
+        <button class="btn btn-primary" type="submit">Gửi</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ Modal: create VM ============ -->
+  <div class="modal-overlay" id="modalCreateVm">
+    <div class="modal" role="dialog" aria-labelledby="createTitle" style="max-width:420px;">
+      <div class="modal-head">
+        <h3 id="createTitle">Thêm máy ảo</h3>
+        <button class="modal-x" onclick="document.getElementById('modalCreateVm').classList.remove('active')" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="field">
+        <label class="field-label" for="newVmVersion">Phiên bản Android</label>
+        <select class="input" id="newVmVersion">
+          <option value="15" selected>Android 15</option>
+          <option value="12">Android 12</option>
+          <option value="auto">Theo mặc định của MuMu</option>
+        </select>
+      </div>
+      <div class="modal-foot">
+        <span></span>
+        <div class="modal-foot-right">
+          <button class="btn btn-secondary" onclick="document.getElementById('modalCreateVm').classList.remove('active')">Huỷ</button>
+          <button class="btn btn-primary" onclick="InstancesModule.submitCreateVm()">Tạo máy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Modal: device identity ============ -->
   <div class="modal-overlay" id="modalSimulation">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">Thay đổi định danh phần cứng (Simulation)</div>
-        <button class="modal-close" onclick="document.getElementById('modalSimulation').classList.remove('active')">&times;</button>
+    <div class="modal" role="dialog" aria-labelledby="simTitle" style="max-width:420px;">
+      <div class="modal-head">
+        <h3 id="simTitle">Đổi định danh thiết bị</h3>
+        <button class="modal-x" onclick="document.getElementById('modalSimulation').classList.remove('active')" aria-label="Đóng">&times;</button>
       </div>
       <input type="hidden" id="simVmIndex">
-      <div class="form-group">
-        <label class="form-label">Thông số cần đổi</label>
-        <select class="form-select" id="simKey">
+      <div class="field">
+        <label class="field-label" for="simKey">Thông số</label>
+        <select class="input" id="simKey">
           <option value="android_id">Android ID</option>
           <option value="imei">IMEI</option>
           <option value="mac_address">Địa chỉ MAC</option>
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Giá trị mới</label>
-        <input type="text" id="simVal" class="form-input" placeholder="Nhập giá trị mới...">
+      <div class="field">
+        <label class="field-label" for="simVal">Giá trị mới</label>
+        <input type="text" id="simVal" class="input mono">
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
-        <button class="btn btn-secondary" onclick="document.getElementById('modalSimulation').classList.remove('active')">Hủy</button>
-        <button class="btn btn-primary" onclick="InstancesModule.submitSimulation()">Áp dụng</button>
+      <div class="modal-foot">
+        <span></span>
+        <div class="modal-foot-right">
+          <button class="btn btn-secondary" onclick="document.getElementById('modalSimulation').classList.remove('active')">Huỷ</button>
+          <button class="btn btn-primary" onclick="InstancesModule.submitSimulation()">Áp dụng</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal: Account -->
-  <div class="modal-overlay" id="modalAccount">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">Lưu tài khoản & 2FA</div>
-        <button class="modal-close" onclick="document.getElementById('modalAccount').classList.remove('active')">&times;</button>
-      </div>
-      <form id="accForm" onsubmit="event.preventDefault(); AccountsModule.submitAccount();">
-        <input type="hidden" id="accEditId">
-        <div class="form-group">
-          <label class="form-label">Nền tảng / Ứng dụng</label>
-          <select class="form-select" id="accService">
-            <option value="google">Google / Gmail</option>
-            <option value="tiktok">TikTok</option>
-            <option value="facebook">Facebook</option>
-            <option value="twitter">Twitter / X</option>
-            <option value="telegram">Telegram</option>
-            <option value="discord">Discord</option>
-            <option value="custom">Ứng dụng Tự chọn</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tên gợi nhớ</label>
-          <input type="text" id="accName" class="form-input" placeholder="Ví dụ: Acc Test 01">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tài khoản / Email / Số điện thoại</label>
-          <input type="text" id="accUsername" class="form-input" required placeholder="user@gmail.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Mật khẩu</label>
-          <input type="password" id="accPassword" class="form-input" placeholder="••••••••">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Mã bí mật 2FA (Secret Key Base32)</label>
-          <input type="text" id="acc2FaSecret" class="form-input" placeholder="Ví dụ: JBSWY3DPEHPK3PXP" style="font-family:'JetBrains Mono',monospace;">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Gắn cố định với Máy Ảo</label>
-          <select class="form-select" id="accVmIndex">
-            <option value="">-- Không gắn --</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Ghi chú</label>
-          <textarea id="accNotes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
-          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalAccount').classList.remove('active')">Hủy</button>
-          <button type="submit" class="btn btn-primary">Lưu tài khoản</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal: Proxy -->
-  <div class="modal-overlay" id="modalProxy">
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">Cấu hình Proxy Gateway</div>
-        <button class="modal-close" onclick="document.getElementById('modalProxy').classList.remove('active')">&times;</button>
-      </div>
-      <form id="proxyForm" onsubmit="event.preventDefault(); ProxiesModule.submitProxy();">
-        <div class="form-group">
-          <label class="form-label">Tên Proxy</label>
-          <input type="text" id="proxyName" class="form-input" placeholder="Ví dụ: Proxy US 01">
-        </div>
-        <div class="form-group" style="display:grid;grid-template-columns:120px 1fr 100px;gap:8px;">
-          <div>
-            <label class="form-label">Giao thức</label>
-            <select class="form-select" id="proxyProto">
-              <option value="http">HTTP</option>
-              <option value="socks5">SOCKS5</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">Host / IP</label>
-            <input type="text" id="proxyHost" class="form-input" placeholder="192.168.1.1" required>
-          </div>
-          <div>
-            <label class="form-label">Cổng (Port)</label>
-            <input type="number" id="proxyPort" class="form-input" placeholder="8080" required>
-          </div>
-        </div>
-        <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div>
-            <label class="form-label">Username (Tùy chọn)</label>
-            <input type="text" id="proxyUsername" class="form-input">
-          </div>
-          <div>
-            <label class="form-label">Password (Tùy chọn)</label>
-            <input type="password" id="proxyPassword" class="form-input">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Gán vào Máy ảo</label>
-          <select class="form-select" id="proxyVmIndex">
-            <option value="">-- Không gán --</option>
-          </select>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
-          <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalProxy').classList.remove('active')">Hủy</button>
-          <button type="submit" class="btn btn-primary">Lưu Proxy</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- PIN Lock Overlay -->
+  <!-- ============ PIN lock ============ -->
   <div class="modal-overlay" id="pinOverlay">
-    <div class="modal-content" style="max-width:380px;text-align:center;">
-      <div style="font-size:36px;margin-bottom:12px;">🔒</div>
-      <h2 style="font-size:18px;margin-bottom:6px;">Bảo Vệ Dashboard</h2>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Nhập mã PIN bảo mật để mở giao diện quản lý.</p>
+    <div class="modal" style="max-width:340px;text-align:center;">
+      <h3 style="margin-bottom:4px;">Nhập mã PIN</h3>
+      <p class="modal-text">Dashboard đang được khoá bằng mã PIN.</p>
       <form id="pinForm">
-        <input type="password" id="inputPin" class="form-input" style="text-align:center;font-size:24px;letter-spacing:6px;margin-bottom:16px;" placeholder="••••" autofocus required>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;">Mở Khóa</button>
+        <input type="password" id="inputPin" class="input input-lg mono" style="text-align:center;letter-spacing:6px;margin-bottom:12px;" autofocus required>
+        <button type="submit" class="btn btn-primary btn-block">Mở khoá</button>
       </form>
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toastContainer"></div>
+  <div id="toastContainer" aria-live="polite"></div>
 
-  <!-- Scripts -->
-  <script src="/static/js/instances.js"></script>
-  <script src="/static/js/testing.js"></script>
-  <script src="/static/js/remote.js"></script>
-  <script src="/static/js/accounts.js"></script>
-  <script src="/static/js/proxies.js"></script>
-  <script src="/static/js/services.js"></script>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/accounts.js?v=9"></script>
+  <script src="/static/js/instances.js?v=12"></script>
+  <script src="/static/js/testing.js?v=9"></script>
+  <script src="/static/js/remote.js?v=9"></script>
+  <script src="/static/js/campaign.js?v=11"></script>
+  <script src="/static/js/console.js?v=10"></script>
+  <script src="/static/js/history.js?v=10"></script>
+  <script src="/static/js/app.js?v=10"></script>
 </body>
 </html>
